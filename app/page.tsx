@@ -11,8 +11,9 @@ export default async function LandingPage() {
   const h = await headers();
   const acceptLang = h.get('accept-language') || '';
   let locale: Locale = cookieLocale;
-  if (cookieLocale === 'en' && /^zh/i.test(acceptLang)) {
-    locale = 'zh';
+  if (cookieLocale === 'en') {
+    if (/^zh/i.test(acceptLang)) locale = 'zh';
+    else if (/^ja/i.test(acceptLang)) locale = 'ja';
   }
   return <LandingClient locale={locale} />;
 }

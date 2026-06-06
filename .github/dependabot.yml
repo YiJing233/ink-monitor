@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    groups:
+      next:
+        patterns:
+          - "next"
+          - "@next/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      auth:
+        patterns:
+          - "next-auth"
+      sqlite:
+        patterns:
+          - "better-sqlite3"
+          - "@types/better-sqlite3"
+    ignore:
+      # Major bumps of better-sqlite3 require native rebuilds; bump manually
+      - dependency-name: "better-sqlite3"
+        update-types: ["version-update:semver-major"]
+      # Next 16+ will require a code review before adoption
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]

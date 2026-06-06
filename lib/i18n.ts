@@ -2,11 +2,12 @@
  * Lightweight i18n. A dictionary per language, no extra deps. Locales are
  * stored in the `NEXT_LOCALE` cookie and propagated via middleware.
  */
-export type Locale = 'en' | 'zh';
+export type Locale = 'en' | 'zh' | 'ja';
 
 export const LOCALES: Array<{ code: Locale; label: string }> = [
   { code: 'en', label: 'English' },
   { code: 'zh', label: '中文' },
+  { code: 'ja', label: '日本語' },
 ];
 
 export const DEFAULT_LOCALE: Locale = 'en';
@@ -87,7 +88,44 @@ const zh: Dict = {
   'footer.copy': '© Ink Monitor · MIT 许可证',
 };
 
-const dicts: Record<Locale, Dict> = { en, zh };
+const ja: Dict = {
+  'tagline': 'あなたの電子書籍リーダーが、ダッシュボードになる。',
+  'lede': 'トークンプランと株価ウォッチリストのための白黒モニタリング画面。OpenAI、Anthropic、または任意のカスタム API キーを貼り付けるだけで、Kindle や Xiaomi の電子書籍リーダーでリアルタイムの消費量を表示。自動更新、アニメーションなし、アカウント紐付け。',
+  'cta.signin': 'GitHub でサインイン',
+  'cta.open': 'ダッシュボードを開く',
+  'cta.demo': 'ライブデモを見る',
+  'nav.features': '機能',
+  'nav.how': '仕組み',
+  'nav.deploy': 'デプロイ',
+  'nav.cli': 'CLI',
+  'meta.free': '無料 · 60秒セットアップ · セルフホスト or SaaS · オープンソース',
+  'features.h': '使い方',
+  'features.01.h': 'GitHub でサインイン',
+  'features.01.p': 'ワンクリック。GitHub ID をお客様のダッシュボード識別のためにだけ使用します。メールやリポジトリへのアクセス権は要求しません。',
+  'features.02.h': 'API キーを貼り付け',
+  'features.02.p': 'OpenAI、Anthropic、または任意のカスタムエンドポイント。キーはユーザー ID に紐づいた AES-256-GCM で暗号化されて保存され、送信後に平文で見ることはありません。',
+  'features.03.h': '電子書籍リーダーでブックマーク',
+  'features.03.p': 'Kindle や Xiaomi のリーダーで /display を開けば、60秒ごとに自動更新。アプリ不要、インストール不要。',
+  'features.04.h': 'セルフホストも可能',
+  'features.04.p': 'Next.js アプリと SQLite だけのシンプルな構成。git clone && pnpm install && pnpm dev でずっと自分のもの。',
+  'privacy.h': 'API キーの保護方法',
+  'privacy.1.h': 'ユーザーごとに暗号化',
+  'privacy.1.p': 'PBKDF2(ENCRYPTION_KEY, user_id) で派生した鍵でユーザーごとに別々に暗号化。マスター鍵は保存しません。',
+  'privacy.2.h': 'サーバー側のみ',
+  'privacy.2.p': 'マスター鍵はデプロイ先の環境変数にあります。データベースだけ流出しても攻撃者には解読できません。',
+  'privacy.3.h': 'パスワードは使いません',
+  'privacy.3.p': '漏洩するパスワードが存在しません。GitHub ログインで、私たちはメールも見られず、プライベートリポジトリにもアクセスできません。',
+  'privacy.4.h': 'オープンソース',
+  'privacy.4.p': 'コードのすべての行が監査可能。README に脅威モデルを含めています。',
+  'deploy.h': 'ワンクリックデプロイ',
+  'deploy.p': 'Vercel、GitHub Pages、または自分のサーバーへ。データ層は可搬な SQLite で、CLI も用意しています。',
+  'cli.h': 'CLI を使う',
+  'cli.p': 'Web UI をスキップしたいパワーユーザー向け。',
+  'cta.h': '60秒で電子書籍リーダーにダッシュボードを。',
+  'footer.copy': '© Ink Monitor · MIT ライセンス',
+};
+
+const dicts: Record<Locale, Dict> = { en, zh, ja };
 
 export function t(locale: Locale, key: string): string {
   return dicts[locale]?.[key] || dicts.en[key] || key;
@@ -95,6 +133,6 @@ export function t(locale: Locale, key: string): string {
 
 export function getLocaleFromCookie(cookieValue: string | null | undefined): Locale {
   if (!cookieValue) return DEFAULT_LOCALE;
-  if (cookieValue === 'en' || cookieValue === 'zh') return cookieValue as Locale;
+  if (cookieValue === 'en' || cookieValue === 'zh' || cookieValue === 'ja') return cookieValue as Locale;
   return DEFAULT_LOCALE;
 }

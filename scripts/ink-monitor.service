@@ -1,0 +1,33 @@
+[Unit]
+Description=Ink Monitor — e-ink dashboard for token plans & stocks
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ink-monitor
+Group=ink-monitor
+WorkingDirectory=/opt/ink-monitor
+EnvironmentFile=/etc/ink-monitor/ink-monitor.env
+ExecStart=/usr/bin/node node_modules/.bin/next start -p 3000
+Restart=on-failure
+RestartSec=5s
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ink-monitor/data /opt/ink-monitor/backups
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+
+[Install]
+WantedBy=multi-user.target
