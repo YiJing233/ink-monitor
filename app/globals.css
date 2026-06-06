@@ -1,0 +1,487 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -----------------------------------------------------------------
+   E-INK OPTIMIZED GLOBAL STYLES
+   Goals:
+     1. No color (pure B&W).
+     2. High contrast borders (≥2px) for ghosting.
+     3. No animations / transitions / shadows.
+     4. System fonts only.
+     5. Old-WebKit safe: no Grid, no `:has`, no `backdrop-filter`.
+   ----------------------------------------------------------------- */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background: #ffffff;
+  color: #000000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+img { image-rendering: -webkit-optimize-contrast; }
+
+/* Disable all transitions globally — e-ink hates them */
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ---------------------------
+   E-INK DISPLAY TYPOGRAPHY
+   --------------------------- */
+.eink {
+  font-size: 18px;
+  line-height: 1.4;
+  color: #000;
+  background: #fff;
+}
+
+.eink h1, .eink h2, .eink h3 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.eink .eink-title {
+  font-size: 28px;
+  font-weight: 800;
+  border-bottom: 3px solid #000;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.eink .eink-subtitle {
+  font-size: 14px;
+  color: #000;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.eink .eink-section {
+  border: 2px solid #000;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.eink .eink-section-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+  font-weight: 700;
+  border-bottom: 2px solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.eink .eink-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px dashed #000;
+  gap: 12px;
+}
+.eink .eink-row:last-child { border-bottom: 0; }
+
+.eink .eink-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.eink .eink-bar-wrap {
+  border: 2px solid #000;
+  height: 22px;
+  position: relative;
+  background: #fff;
+  margin: 4px 0 6px 0;
+}
+.eink .eink-bar-fill {
+  background: #000;
+  height: 100%;
+}
+.eink .eink-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: #000;
+  mix-blend-mode: difference;
+  filter: invert(1);
+}
+
+.eink .eink-up   { color: #000; }
+.eink .eink-down { color: #000; text-decoration: underline; }
+.eink .eink-flat { color: #000; }
+
+/* Stock rows look like a teletext table */
+.eink .eink-stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+.eink .eink-stock-table th,
+.eink .eink-stock-table td {
+  border-bottom: 1px solid #000;
+  padding: 6px 4px;
+  text-align: left;
+  vertical-align: baseline;
+}
+.eink .eink-stock-table th {
+  border-bottom: 2px solid #000;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+.eink .eink-stock-table td.num,
+.eink .eink-stock-table th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+/* Status badge — pure B&W with thick border */
+.eink .eink-badge {
+  display: inline-block;
+  border: 2px solid #000;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #fff;
+  color: #000;
+}
+.eink .eink-badge.solid { background: #000; color: #fff; }
+
+/* Footer */
+.eink .eink-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border-top: 2px solid #000;
+  margin-top: 12px;
+  padding-top: 6px;
+}
+
+/* Big-link whole display page can be a tap target for forced refresh */
+.eink .eink-refresh-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+/* Avoid CSS Grid for old Kindle — flex everywhere */
+.eink .eink-grid-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.eink .eink-grid-2 > .eink-section {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+/* ---------------------------
+   ADMIN (modern browser)
+   --------------------------- */
+.admin {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+.admin h1 { font-size: 24px; font-weight: 700; margin: 0 0 16px; }
+.admin h2 { font-size: 18px; font-weight: 700; margin: 24px 0 8px; }
+.admin .nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.admin .nav a {
+  border: 2px solid #000;
+  padding: 6px 12px;
+  text-decoration: none;
+  color: #000;
+  background: #fff;
+}
+.admin .nav a.active { background: #000; color: #fff; }
+
+.admin .panel { border: 2px solid #000; padding: 16px; margin-bottom: 16px; background: #fff; }
+.admin .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.admin .pill { border: 1px solid #000; padding: 1px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+.admin table { width: 100%; border-collapse: collapse; }
+.admin th, .admin td { border-bottom: 1px solid #000; padding: 8px 6px; text-align: left; font-size: 14px; }
+.admin th { border-bottom: 2px solid #000; text-transform: uppercase; font-size: 12px; }
+.admin code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+.admin input, .admin select, .admin textarea {
+  font: inherit;
+  border: 2px solid #000;
+  background: #fff;
+  color: #000;
+  padding: 6px 8px;
+  border-radius: 0;
+}
+.admin input:focus, .admin select:focus, .admin textarea:focus {
+  outline: 2px solid #000;
+  outline-offset: 1px;
+}
+.admin .btn {
+  border: 2px solid #000;
+  background: #fff;
+  color: #000;
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+}
+.admin .btn:hover { background: #000; color: #fff; }
+.admin .btn.primary { background: #000; color: #fff; }
+.admin .btn.primary:hover { background: #fff; color: #000; }
+.admin .btn.danger { background: #fff; color: #000; }
+.admin .btn.danger:hover { background: #000; color: #fff; }
+.admin .label { display: block; font-size: 12px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+.admin .field { margin-bottom: 12px; }
+.admin .hint { font-size: 12px; opacity: 0.7; }
+.admin .err { color: #000; font-weight: 700; border: 2px solid #000; padding: 6px 8px; margin: 8px 0; background: #fff; }
+.admin .ok { color: #000; border: 2px solid #000; padding: 6px 8px; margin: 8px 0; background: #fff; }
+
+/* ---------------------------
+   LANDING / MARKETING
+   --------------------------- */
+.landing {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+.landing-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0;
+  border-bottom: 2px solid #000;
+  margin-bottom: 32px;
+}
+.brand {
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+.landing-nav-links {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.landing-nav-links a {
+  color: #000;
+  text-decoration: none;
+  font-size: 14px;
+}
+.landing-nav-links a:hover { text-decoration: underline; }
+
+.hero { padding: 32px 0 16px; max-width: 780px; }
+.hero h1 {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -1.5px;
+  margin: 0 0 16px;
+}
+.hero .lede {
+  font-size: 19px;
+  line-height: 1.5;
+  margin: 0 0 28px;
+  max-width: 640px;
+}
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 12px;
+}
+.btn.big {
+  font-size: 16px;
+  padding: 14px 22px;
+}
+.hero-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #000;
+  margin-top: 6px;
+}
+
+.mockup {
+  margin: 56px 0 64px;
+  display: flex;
+  justify-content: center;
+}
+.device {
+  border: 4px solid #000;
+  background: #fff;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.device-screen {
+  background: #fff;
+  padding: 18px;
+}
+.device-foot {
+  border-top: 2px solid #000;
+  padding: 8px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  text-align: center;
+  background: #fff;
+}
+
+/* Mocked display content (re-uses eink classes for parity) */
+.eink-mock .eink-mock-h1 {
+  font-size: 22px;
+  font-weight: 800;
+  border-bottom: 2px solid #000;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.eink-mock-sub {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-bottom: 8px;
+}
+.eink-mock-section { border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
+.eink-mock-sh { display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 5px; }
+.eink-mock-badge { display: inline-block; border: 1.5px solid #000; padding: 0 4px; font-size: 10px; }
+.eink-mock-badge.solid { background: #000; color: #fff; }
+.eink-mock-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.eink-mock-card { border: 2px solid #000; padding: 6px 8px; flex: 1 1 200px; }
+.eink-mock-row { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+.eink-mock-num { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 600; }
+.eink-mock-bar { border: 1.5px solid #000; height: 14px; position: relative; margin: 3px 0; }
+.eink-mock-bar > div:first-child { background: #000; height: 100%; }
+.eink-mock-bar-lbl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; font-weight: 700; mix-blend-mode: difference; filter: invert(1); }
+.eink-mock-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.eink-mock-tbl th, .eink-mock-tbl td { border-bottom: 1px solid #000; padding: 3px 2px; }
+.eink-mock-tbl th { border-bottom: 2px solid #000; text-align: left; font-size: 10px; }
+.eink-mock-tbl .num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+.features { padding: 32px 0; }
+.features h2, .privacy h2, .deploy h2, .cli h2, .cta h2 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin: 0 0 24px;
+}
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+.feature {
+  border: 2px solid #000;
+  padding: 18px;
+}
+.feature-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.feature h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.feature p {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.privacy {
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+  padding: 32px 0;
+  margin: 32px 0;
+}
+.privacy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+.privacy h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.privacy p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+.privacy code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f0f0f0;
+  padding: 0 3px;
+}
+
+.deploy { padding: 32px 0; }
+.deploy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+.deploy-card {
+  border: 2px solid #000;
+  padding: 16px;
+}
+.deploy-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.deploy-card pre {
+  background: #f4f4f4;
+  border: 1.5px solid #000;
+  padding: 8px 10px;
+  font-size: 12px;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.deploy-card p { font-size: 13px; margin: 0; }
+
+.cli { padding: 32px 0; }
+.cli-block {
+  background: #f4f4f4;
+  border: 2px solid #000;
+  padding: 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.cta {
+  border: 2px solid #000;
+  padding: 40px 24px;
+  text-align: center;
+  margin: 32px 0;
+}
+.cta h2 { margin-top: 0; }
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 24px;
+  border-top: 2px solid #000;
+  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: #000; text-decoration: none; }
