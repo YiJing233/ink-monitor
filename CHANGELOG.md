@@ -64,5 +64,5 @@ All notable changes to Ink Monitor are documented here. The format follows
 - Quickstart skill for Claude Code.
 - README + DEPLOY.md.
 
-[Unreleased]: https://github.com/your-org/ink-monitor/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/your-org/ink-monitor/releases/tag/v0.1.0
+[Unreleased]: https://github.com/YiJing233/ink-monitor/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/YiJing233/ink-monitor/releases/tag/v0.1.0

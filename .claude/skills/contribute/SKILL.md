@@ -15,7 +15,7 @@ contribute", "open a PR", "submit a fix", etc.
 
 ## Step 1 — Pick an issue
 
-Look at https://github.com/your-org/ink-monitor/issues and filter by
+Look at https://github.com/YiJing233/ink-monitor/issues and filter by
 labels `good first issue` or `help wanted`. The skill should:
 
 - List the 3 most recent `good first issue`s with their titles
@@ -29,21 +29,21 @@ template).
 ## Step 2 — Fork and clone
 
 ```bash
-gh repo fork your-org/ink-monitor --clone
+gh repo fork YiJing233/ink-monitor --clone
 cd ink-monitor
 ```
 
 If they don't have `gh` installed, fall back to:
-1. Click "Fork" on https://github.com/your-org/ink-monitor
+1. Click "Fork" on https://github.com/YiJing233/ink-monitor
 2. `git clone https://github.com/<their-username>/ink-monitor.git`
-3. `git remote add upstream https://github.com/your-org/ink-monitor.git`
+3. `git remote add upstream https://github.com/YiJing233/ink-monitor.git`
 
 Verify the setup:
 ```bash
 git remote -v
 # should show:
 #   origin    https://github.com/<their-username>/ink-monitor.git
-#   upstream  https://github.com/your-org/ink-monitor.git
+#   upstream  https://github.com/YiJing233/ink-monitor.git
 ```
 
 ## Step 3 — Local setup
@@ -130,7 +130,7 @@ gh pr create --title "..." --body "..."
 
 If `gh` isn't authenticated, fall back to:
 1. `git push -u origin fix/<short-description>`
-2. Open https://github.com/your-org/ink-monitor/compare/main...<branch>
+2. Open https://github.com/YiJing233/ink-monitor/compare/main...<branch>
 3. Click "Create pull request"
 
 The PR body should reference the issue it closes:
@@ -184,5 +184,5 @@ Take a break. You earned it.
 ## Help
 
 Stuck? Open a Discussion at
-https://github.com/your-org/ink-monitor/discussions or mention
+https://github.com/YiJing233/ink-monitor/discussions or mention
 @maintainer in your PR.

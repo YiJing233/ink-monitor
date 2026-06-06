@@ -19,4 +19,4 @@ Links to docs / GitHub / Stack Overflow you've already consulted.
 - Deployment: local / Vercel / self-host
 - Goal: ...
 
-Note: for **support** requests, please use [GitHub Discussions](https://github.com/your-org/ink-monitor/discussions) instead.
+Note: for **support** requests, please use [GitHub Discussions](https://github.com/YiJing233/ink-monitor/discussions) instead.

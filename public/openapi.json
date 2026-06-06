@@ -4,7 +4,7 @@
     "title": "Ink Monitor API",
     "version": "0.1.0",
     "description": "REST API for Ink Monitor — token-plan usage and stock monitoring for e-ink devices.\n\n## Authentication\n\nAll authenticated endpoints expect a NextAuth session cookie. The CLI uses a bearer token (set `Authorization: Bearer <token>`).\n\nThe public snapshot endpoint accepts a `?share=<token>` query parameter for unauthenticated /display access.\n\n## Rate limits\n\nPer-user soft cap of 60 req/min. Exceeding returns `429` with `Retry-After`.\n\n## Idempotency\n\nPOST endpoints accept an optional `Idempotency-Key` header to safely retry. The first 24h of keys are deduped; after that the key can be reused.",
-    "contact": { "name": "Ink Monitor", "url": "https://github.com/your-org/ink-monitor" },
+    "contact": { "name": "Ink Monitor", "url": "https://github.com/YiJing233/ink-monitor" },
     "license": { "name": "MIT" }
   },
   "servers": [

@@ -39,6 +39,6 @@
 
   <!-- Bottom -->
   <line x1="0" y1="610" x2="1200" y2="610" stroke="#000" stroke-width="2"/>
-  <text x="60" y="600" font-family="ui-monospace, monospace" font-size="14" fill="#000">github.com/your-org/ink-monitor</text>
+  <text x="60" y="600" font-family="ui-monospace, monospace" font-size="14" fill="#000">github.com/YiJing233/ink-monitor</text>
   <text x="1140" y="600" font-family="ui-monospace, monospace" font-size="14" fill="#000" text-anchor="end">MIT licensed</text>
 </svg>

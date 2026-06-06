@@ -4,7 +4,7 @@
 > AI token-plan usage and a stock watchlist on a screen that barely uses power.
 > Multi-tenant SaaS, GitHub OAuth, per-user encrypted API keys, one-click deploy.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyour-org%2Fink-monitor%2Ftree%2Fmain&env=GITHUB_ID,GITHUB_SECRET,ENCRYPTION_KEY,NEXTAUTH_SECRET&envDescription=Required%20env%20vars&envLink=https%2F%2Fgithub.com%2Fyour-org%2Fink-monitor%2Fblob%2Fmain%2FDEPLOY.md)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYiJing233%2Fink-monitor%2Ftree%2Fmain&env=GITHUB_ID,GITHUB_SECRET,ENCRYPTION_KEY,NEXTAUTH_SECRET&envDescription=Required%20env%20vars&envLink=https%2F%2Fgithub.com%2Fyour-org%2Fink-monitor%2Fblob%2Fmain%2FDEPLOY.md)
 
 ---
 

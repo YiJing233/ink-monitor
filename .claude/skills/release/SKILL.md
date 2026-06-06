@@ -65,7 +65,7 @@ The skill should:
 2. Leave a fresh, empty `[Unreleased]` section at the top
 3. Add a diff URL at the bottom:
    ```markdown
-   [X.Y.Z]: https://github.com/your-org/ink-monitor/compare/v<prev>...vX.Y.Z
+   [X.Y.Z]: https://github.com/YiJing233/ink-monitor/compare/v<prev>...vX.Y.Z
    ```
 4. Commit: `git add CHANGELOG.md && git commit -m "docs: changelog for vX.Y.Z"`
 
@@ -126,7 +126,7 @@ text:
 
 <second-line highlight>
 
-→ https://github.com/your-org/ink-monitor/releases/tag/vX.Y.Z
+→ https://github.com/YiJing233/ink-monitor/releases/tag/vX.Y.Z
 ```
 
 ## Common issues
