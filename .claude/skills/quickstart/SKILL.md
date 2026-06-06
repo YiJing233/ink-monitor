@@ -1,71 +1,61 @@
 ---
 name: quickstart
-description: One-sentence deploy of the Kindle E-ink Monitor. Installs deps, generates an encryption key, starts the dev server, and prints URLs to the admin and display pages. Optionally deploys to Vercel.
+description: One-sentence local bring-up of Ink Monitor. Installs deps, generates an encryption key, starts the dev server, and prints URLs to the admin and display pages. For public deploy, see the `deploy` skill.
 ---
 
-# Kindle E-ink Monitor — Quickstart
+# Ink Monitor — Quickstart (local)
 
-End-to-end bring-up of the monitoring dashboard in this repo, with sensible
-defaults so the user sees a working `/display` page in under 60 seconds.
+End-to-end bring-up on `localhost`. The user sees a working `/display`
+with pre-seeded sparklines in under 60 seconds.
 
-## What the user sees
+## When to use
 
-1. Dependencies installed (pnpm + better-sqlite3 native binding)
-2. A fresh `ENCRYPTION_KEY` generated
-3. Dev server running on `http://localhost:3000`
-4. `curl /display` showing the pre-seeded sparkline demo (AAPL, MSFT, NVDA, TSLA, BABA, 00700, 600519)
-5. A one-click `Load demo data` action so a `Demo plan` provider shows realistic usage
+- User says "try it locally", "spin it up", "demo it on my machine"
+- User wants to evaluate before deploying
 
-## Invocation
-
-The user types `/quickstart` (or invokes via the Skill tool with `name: "quickstart"`).
-The skill does the rest. No questions asked, no choices to make — defaults are
-chosen so the dashboard is immediately useful on `localhost:3000`.
-
-If the user has `vercel` CLI installed and the env var `DEPLOY=vercel` is set
-(or they pass `--vercel` to the prompt), the skill will instead:
-
-1. Run the local bring-up steps
-2. Run `vercel --prod` to deploy
-3. Print the public URL of the deployed `/display` page
+For "put it on the internet" use the `deploy` skill instead.
 
 ## Steps the skill executes
 
-1. Check `node --version` (need ≥ 20) and `pnpm --version` (need ≥ 9)
-2. `pnpm install` — pulls deps, prompts to approve `better-sqlite3` build
-3. `pnpm rebuild better-sqlite3` — compiles the native binding
-4. `cp .env.example .env` if missing
-5. Generate `ENCRYPTION_KEY` via `openssl rand -hex 32` and write to `.env`
-6. Run `npx next dev -p 3000` in the background
-7. `curl -fsS http://localhost:3000/display > /dev/null` to confirm
-8. `curl -fsS -X POST http://localhost:3000/api/demo` to load the demo provider
-9. Print the URLs the user should open:
-   - `http://localhost:3000/admin` — manage providers & stocks
-   - `http://localhost:3000/display` — the e-ink view (this is what you bookmark on the Kindle)
+1. `cd` into the project root
+2. Verify `node --version` ≥ 20 and `pnpm --version` ≥ 9
+3. `pnpm install` — pulls deps
+4. `pnpm rebuild better-sqlite3` — compiles the native binding
+5. `cp .env.example .env` if missing
+6. Generate `ENCRYPTION_KEY` and `NEXTAUTH_SECRET` via `openssl rand -hex 32`
+   and write to `.env`. Set `ENABLE_DEV_LOGIN=true` for password-less
+   local sign-in
+7. Start `npx next dev -p 3000` in the background
+8. `curl -fsS http://localhost:3000/display` to confirm it's up
+9. Sign-in with the dev provider (any email) and click "Load demo data"
+   in `/admin` to seed a `Demo plan` provider + sample stocks
+
+Print the URLs:
+- `http://localhost:3000/` — marketing landing
+- `http://localhost:3000/signin` — sign in (dev login accepts any email)
+- `http://localhost:3000/admin` — manage providers / stocks / settings
+- `http://localhost:3000/display` — the e-ink view (this is what to
+  bookmark on the Kindle)
 
 ## Optional args
 
-- `--vercel` — deploy to Vercel after bring-up. Requires `vercel` CLI logged in.
-- `--port=4000` — change the dev port.
-- `--no-demo` — skip the auto `Load demo data` call.
-- `--reset` — delete `data/monitor.db` before starting (clean slate).
+- `--port=4000` — change the dev port
+- `--no-demo` — skip the auto "Load demo data" call
+- `--reset` — delete `data/monitor.db` before starting (clean slate)
 
 ## Compatibility
 
-- Tested on macOS, Linux. On Windows use WSL.
-- E-ink targets: any Kindle with experimental browser, any Xiaomi / 多看 e-reader.
-- Mobile / desktop browsers: works fully (B&W only, by design).
+- macOS, Linux: tested
+- Windows: use WSL
+- E-ink targets: any Kindle with experimental browser, Xiaomi / 多看,
+  Boox, or any modern browser
 
 ## What the user does next
 
-- **Try the demo** — open `/display`, see sparklines and a demo provider.
-- **Add real data** — open `/admin/providers`, paste an OpenAI or Anthropic
-  API key, save. The dashboard starts showing real data within one refresh window.
-- **Add stocks** — `/admin/stocks`, add `AAPL` (US), `00700` (HK), `600519` (CN).
-- **Set on Kindle** — open `/display` on the device, bookmark it, enable
-  "Article Mode" in the experimental browser if available. The page
-  auto-refreshes every 60s (configurable per-row and globally).
-- **Deploy publicly** — `vercel --prod` with `ENCRYPTION_KEY` set. Note
-  SQLite won't persist on Vercel serverless; use a Turso / libSQL adapter
-  or accept the loss of provider configs (display + stocks will still
-  resolve, just won't remember them across deploys).
+- Add real data — paste an OpenAI / Anthropic key in `/admin/providers`
+- Add stocks — `/admin/stocks`, e.g. `AAPL` (US), `00700` (HK), `600519` (CN)
+- Set on Kindle — open `/display` on the device, bookmark it, enable
+  "Article Mode" in the experimental browser
+- Generate a share link — `/admin` → "Share link for e-reader"
+- Deploy publicly — run the `deploy` skill
+

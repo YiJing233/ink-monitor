@@ -77,12 +77,53 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (user_id, key),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      events TEXT NOT NULL,        -- JSON array of event names
+      secret TEXT NOT NULL,        -- used to sign deliveries (HMAC-SHA256)
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      last_delivered_at INTEGER,
+      last_status INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status INTEGER,
+      response_excerpt TEXT,
+      delivered_at INTEGER NOT NULL,
+      FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      action TEXT NOT NULL,            -- 'create' | 'update' | 'delete' | 'move' | 'login' | ...
+      target_type TEXT NOT NULL,        -- 'provider' | 'stock' | 'settings' | 'share' | 'account'
+      target_id TEXT,
+      before_json TEXT,
+      after_json TEXT,
+      ip TEXT,
+      user_agent TEXT,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_user_time ON audit_log(user_id, created_at DESC);
   `);
 
   // Unique index on (user_id, symbol) for stocks
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_stocks_user_symbol ON stocks(user_id, symbol)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_providers_user ON providers(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_stocks_user ON stocks(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_webhooks_user ON webhooks(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id, delivered_at DESC)');
 }
 
 // --- Users ---

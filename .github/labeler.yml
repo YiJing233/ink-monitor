@@ -1,0 +1,46 @@
+# Auto-label PRs by changed path. Requires the
+# actions/labeler action in CI; see .github/workflows/ci.yml.
+'e-ink':
+  - app/display/**
+  - app/globals.css
+  - '**/*eink*'
+  - '**/e-ink*'
+
+'provider/openai':
+  - lib/providers/openai.ts
+'provider/anthropic':
+  - lib/providers/anthropic.ts
+'provider/custom':
+  - lib/providers/custom.ts
+
+'data-source':
+  - lib/stocks.ts
+
+'cli':
+  - bin/**
+  - '**/ink-monitor*'
+
+'deploy':
+  - vercel.json
+  - DEPLOY.md
+  - .github/workflows/**
+
+'security':
+  - lib/crypto.ts
+  - lib/auth.ts
+  - lib/session.ts
+  - middleware.ts
+
+'documentation':
+  - '**/*.md'
+
+'i18n':
+  - lib/i18n.ts
+
+'tests':
+  - '**/__tests__/**'
+  - vitest.config.ts
+
+'dependencies':
+  - package.json
+  - pnpm-lock.yaml

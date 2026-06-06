@@ -1,0 +1,271 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ink Monitor API",
+    "version": "0.1.0",
+    "description": "REST API for Ink Monitor — token-plan usage and stock monitoring for e-ink devices.\n\n## Authentication\n\nAll authenticated endpoints expect a NextAuth session cookie. The CLI uses a bearer token (set `Authorization: Bearer <token>`).\n\nThe public snapshot endpoint accepts a `?share=<token>` query parameter for unauthenticated /display access.\n\n## Rate limits\n\nPer-user soft cap of 60 req/min. Exceeding returns `429` with `Retry-After`.\n\n## Idempotency\n\nPOST endpoints accept an optional `Idempotency-Key` header to safely retry. The first 24h of keys are deduped; after that the key can be reused.",
+    "contact": { "name": "Ink Monitor", "url": "https://github.com/your-org/ink-monitor" },
+    "license": { "name": "MIT" }
+  },
+  "servers": [
+    { "url": "https://ink-monitor.example.com", "description": "Hosted" },
+    { "url": "http://localhost:3000", "description": "Local" }
+  ],
+  "tags": [
+    { "name": "providers", "description": "Token-plan provider CRUD" },
+    { "name": "stocks", "description": "Stock watchlist CRUD" },
+    { "name": "settings", "description": "Per-user settings" },
+    { "name": "share", "description": "Share link for /display" },
+    { "name": "snapshot", "description": "Pre-resolved display payload" },
+    { "name": "webhooks", "description": "Outbound webhook subscriptions" },
+    { "name": "audit", "description": "Audit log" },
+    { "name": "demo", "description": "Load sample data" },
+    { "name": "health", "description": "Liveness and readiness" },
+    { "name": "openapi", "description": "This spec" }
+  ],
+  "paths": {
+    "/api/providers": {
+      "get": {
+        "tags": ["providers"],
+        "summary": "List configured providers",
+        "security": [{ "session": [] }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "providers": { "type": "array", "items": { "$ref": "#/components/schemas/ProviderListItem" } } } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["providers"],
+        "summary": "Create a provider",
+        "security": [{ "session": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderCreate" } } } },
+        "responses": {
+          "200": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "ok": { "type": "boolean" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/providers/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["providers"], "summary": "Get a single provider (not implemented)", "responses": { "501": { "description": "Not implemented" } } },
+      "patch": {
+        "tags": ["providers"],
+        "summary": "Update a provider",
+        "security": [{ "session": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderUpdate" } } } },
+        "responses": { "200": { "description": "OK" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "delete": { "tags": ["providers"], "summary": "Delete a provider", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["providers"],
+        "summary": "Reorder a provider",
+        "description": "Body: `{ \"action\": \"move\", \"direction\": \"up\" | \"down\" }`",
+        "security": [{ "session": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/stocks": {
+      "get": { "tags": ["stocks"], "summary": "List watchlist", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["stocks"],
+        "summary": "Add a stock",
+        "security": [{ "session": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StockCreate" } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/stocks/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "delete": { "tags": ["stocks"], "summary": "Remove a stock", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["stocks"],
+        "summary": "Reorder a stock",
+        "description": "Body: `{ \"action\": \"move\", \"direction\": \"up\" | \"down\" }`",
+        "security": [{ "session": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/settings": {
+      "get": { "tags": ["settings"], "summary": "Read settings", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["settings"],
+        "summary": "Update settings",
+        "security": [{ "session": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SettingsUpdate" } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/share": {
+      "get": { "tags": ["share"], "summary": "Get or create share token", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["share"], "summary": "Rotate share token", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "delete": { "tags": ["share"], "summary": "Revoke share token", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/snapshot": {
+      "get": {
+        "tags": ["snapshot"],
+        "summary": "Pre-resolved display payload (public via session or ?share=)",
+        "parameters": [
+          { "name": "share", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Share token; resolves user without a session" },
+          { "name": "u", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Legacy user id (prefer ?share=)" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DisplayData" } } } }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": { "tags": ["webhooks"], "summary": "List webhooks", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Subscribe a webhook",
+        "security": [{ "session": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookCreate" } } } },
+        "responses": { "200": { "description": "OK; secret returned ONCE here", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "secret": { "type": "string" }, "ok": { "type": "boolean" } } } } } }
+      }
+    },
+    "/api/webhooks/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["webhooks"], "summary": "Get webhook + recent deliveries", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "patch": { "tags": ["webhooks"], "summary": "Toggle active / update", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "delete": { "tags": ["webhooks"], "summary": "Delete a webhook", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Test-fire the webhook",
+        "description": "Body: `{ \"action\": \"test\" }`",
+        "security": [{ "session": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": ["audit"],
+        "summary": "Recent audit log entries",
+        "security": [{ "session": [] }],
+        "parameters": [{ "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "maximum": 500 } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/demo": {
+      "post": { "tags": ["demo"], "summary": "Load sample data (idempotent)", "security": [{ "session": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Liveness + DB check + version + uptime",
+        "responses": {
+          "200": { "description": "Service healthy", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } },
+          "503": { "description": "Degraded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Readiness probe (200 if DB reachable, 503 otherwise)",
+        "responses": { "200": { "description": "Ready" }, "503": { "description": "Not ready" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": { "type": "apiKey", "in": "cookie", "name": "next-auth.session-token", "description": "NextAuth session JWT, signed with NEXTAUTH_SECRET" },
+      "bearer": { "type": "http", "scheme": "bearer", "description": "CLI bearer token (set Authorization: Bearer <token>)" }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Missing or invalid session", "content": { "application/json": { "schema": { "type": "object", "properties": { "error": { "type": "string" } } } } } },
+      "BadRequest": { "description": "Invalid request body", "content": { "application/json": { "schema": { "type": "object", "properties": { "error": { "type": "object" } } } } } },
+      "NotFound": { "description": "Resource not found", "content": { "application/json": { "schema": { "type": "object", "properties": { "error": { "type": "string" } } } } } }
+    },
+    "schemas": {
+      "ProviderListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["openai", "anthropic", "custom", "demo", "groq", "mistral", "deepseek", "moonshot", "zhipu", "openrouter", "ollama"] },
+          "base_url": { "type": ["string", "null"] },
+          "endpoint": { "type": ["string", "null"] },
+          "json_path": { "type": ["string", "null"] },
+          "refresh_seconds": { "type": ["integer", "null"] },
+          "display_order": { "type": "integer" },
+          "has_key": { "type": "boolean" },
+          "api_key_masked": { "type": "string" }
+        }
+      },
+      "ProviderCreate": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["openai", "anthropic", "custom", "demo", "groq", "mistral", "deepseek", "moonshot", "zhipu", "openrouter", "ollama"] },
+          "api_key": { "type": "string", "description": "Required for non-demo" },
+          "base_url": { "type": "string" },
+          "endpoint": { "type": "string" },
+          "json_path": { "type": "string" },
+          "refresh_seconds": { "type": "integer", "minimum": 15, "maximum": 86400 }
+        }
+      },
+      "ProviderUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "api_key": { "type": "string" },
+          "base_url": { "type": ["string", "null"] },
+          "endpoint": { "type": ["string", "null"] },
+          "json_path": { "type": ["string", "null"] },
+          "refresh_seconds": { "type": ["integer", "null"], "minimum": 15, "maximum": 86400 }
+        }
+      },
+      "StockCreate": {
+        "type": "object",
+        "required": ["symbol", "market"],
+        "properties": {
+          "symbol": { "type": "string" },
+          "market": { "type": "string", "enum": ["us", "cn", "hk"] },
+          "display_name": { "type": "string" },
+          "refresh_seconds": { "type": "integer" }
+        }
+      },
+      "SettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "refresh_seconds": { "type": "integer", "minimum": 15, "maximum": 3600 },
+          "page_title": { "type": "string", "maxLength": 60 }
+        }
+      },
+      "WebhookCreate": {
+        "type": "object",
+        "required": ["url", "events"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "events": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "DisplayData": {
+        "type": "object",
+        "properties": {
+          "generatedAt": { "type": "integer" },
+          "pageTitle": { "type": "string" },
+          "refreshSeconds": { "type": "integer" },
+          "defaultRefreshSeconds": { "type": "integer" },
+          "providers": { "type": "array", "items": { "type": "object" } },
+          "stocks": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["ok", "degraded"] },
+          "db": { "type": "object", "properties": { "ok": { "type": "boolean" }, "latencyMs": { "type": "number" }, "error": { "type": "string" } } },
+          "uptime": { "type": "integer" },
+          "version": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

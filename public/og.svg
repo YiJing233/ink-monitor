@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <title>Ink Monitor — your e-reader is a dashboard</title>
+  <rect width="1200" height="630" fill="#ffffff"/>
+
+  <!-- Top bar -->
+  <line x1="0" y1="80" x2="1200" y2="80" stroke="#000" stroke-width="2"/>
+
+  <!-- Brand -->
+  <g transform="translate(60, 30)">
+    <rect width="40" height="40" fill="#000"/>
+    <rect x="14" y="8" width="12" height="24" fill="#fff"/>
+  </g>
+  <text x="120" y="60" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="800" fill="#000">Ink Monitor</text>
+
+  <!-- Hero -->
+  <text x="60" y="220" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="80" font-weight="800" fill="#000">Your e-reader</text>
+  <text x="60" y="310" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="80" font-weight="800" fill="#000">is a dashboard.</text>
+
+  <text x="60" y="400" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#000">Token-plan monitoring · Stock watchlist · B&amp;W</text>
+  <text x="60" y="430" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#000">for Kindle, Xiaomi, Boox, and any e-reader browser.</text>
+
+  <!-- Mock device -->
+  <g transform="translate(60, 480)">
+    <rect width="540" height="120" fill="#fff" stroke="#000" stroke-width="3"/>
+    <line x1="0" y1="30" x2="540" y2="30" stroke="#000" stroke-width="2"/>
+    <text x="14" y="22" font-family="ui-monospace, monospace" font-size="14" font-weight="700" fill="#000">Monitor</text>
+    <text x="14" y="50" font-family="ui-monospace, monospace" font-size="11" fill="#000">Token plans · Stocks · 60s refresh</text>
+
+    <!-- Mock usage bars -->
+    <text x="14" y="78" font-family="ui-monospace, monospace" font-size="11" fill="#000">OpenAI tokens (24h)</text>
+    <rect x="160" y="68" width="200" height="14" fill="none" stroke="#000" stroke-width="1.5"/>
+    <rect x="160" y="68" width="78" height="14" fill="#000"/>
+    <text x="370" y="78" font-family="ui-monospace, monospace" font-size="11" fill="#000">39%</text>
+
+    <text x="14" y="100" font-family="ui-monospace, monospace" font-size="11" fill="#000">AAPL</text>
+    <text x="160" y="100" font-family="ui-monospace, monospace" font-size="11" fill="#000">307.34 USD  -1.25%</text>
+  </g>
+
+  <!-- Bottom -->
+  <line x1="0" y1="610" x2="1200" y2="610" stroke="#000" stroke-width="2"/>
+  <text x="60" y="600" font-family="ui-monospace, monospace" font-size="14" fill="#000">github.com/your-org/ink-monitor</text>
+  <text x="1140" y="600" font-family="ui-monospace, monospace" font-size="14" fill="#000" text-anchor="end">MIT licensed</text>
+</svg>

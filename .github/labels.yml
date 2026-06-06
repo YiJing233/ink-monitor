@@ -1,0 +1,135 @@
+# GitHub issue label catalog. To apply:
+#   1. Install `gh-label` (https://github.com/heitorbaldo/ghaction-labels) or
+#      use the `actions/labeler` action with this file.
+#   2. PR titles, commit messages, or file paths can also drive auto-labeling
+#      via .github/labeler.yml (see below).
+#
+# Color codes: 6-hex without #. We use e-ink-friendly B&W + a couple of
+# functional hues for status distinction only.
+
+name: ink-monitor-labels
+description: Label catalog for the Ink Monitor repo
+labels:
+  - name: bug
+    color: "000000"
+    description: Something is broken or behaving wrong.
+
+  - name: enhancement
+    color: "cccccc"
+    description: New feature or improvement.
+
+  - name: documentation
+    color: "aaaaaa"
+    description: Docs, README, or in-code comments.
+
+  - name: refactor
+    color: "eeeeee"
+    description: No functional change, internal cleanup.
+
+  - name: security
+    color: "000000"
+    description: Vulnerability, secret leak, or auth bypass.
+
+  - name: e-ink
+    color: "444444"
+    description: Affects /display, Kindle, or e-ink compatibility.
+
+  - name: provider/openai
+    color: "10a37f"
+    description: Related to the OpenAI / Codex provider integration.
+
+  - name: provider/anthropic
+    color: "c84a31"
+    description: Related to the Anthropic Claude provider integration.
+
+  - name: provider/custom
+    color: "888888"
+    description: Custom (any API) provider integration.
+
+  - name: provider/groq
+    color: "f55036"
+    description: Groq provider integration.
+
+  - name: provider/mistral
+    color: "ff7000"
+    description: Mistral provider integration.
+
+  - name: provider/deepseek
+    color: "4d6bfe"
+    description: DeepSeek provider integration.
+
+  - name: provider/moonshot
+    color: "1a1a1a"
+    description: Moonshot (月之暗面) provider integration.
+
+  - name: provider/zhipu
+    color: "3754d8"
+    description: Zhipu GLM (智谱) provider integration.
+
+  - name: provider/openrouter
+    color: "6066eb"
+    description: OpenRouter provider integration.
+
+  - name: provider/ollama
+    color: "000000"
+    description: Ollama (local) provider integration.
+
+  - name: stock/us
+    color: "bbbbbb"
+    description: US stock data path.
+
+  - name: stock/cn
+    color: "bbbbbb"
+    description: China / A-share data path.
+
+  - name: stock/hk
+    color: "bbbbbb"
+    description: Hong Kong data path.
+
+  - name: data-source
+    color: "888888"
+    description: Affects the upstream data fetcher (Tencent / Sina / Yahoo / Eastmoney).
+
+  - name: i18n
+    color: "dddddd"
+    description: Translations or locale detection.
+
+  - name: accessibility
+    color: "dddddd"
+    description: a11y improvements.
+
+  - name: cli
+    color: "222222"
+    description: `npx ink-monitor` CLI changes.
+
+  - name: deploy
+    color: "222222"
+    description: Vercel / self-host deploy path.
+
+  - name: cli/auth
+    color: "000000"
+    description: CLI auth flow (OAuth callback, token storage).
+
+  - name: "good first issue"
+    color: "00b894"
+    description: Beginner-friendly — small scope, clear acceptance.
+
+  - name: "help wanted"
+    color: "0088cc"
+    description: We need an outside contribution here.
+
+  - name: "needs-triage"
+    color: "fb8c00"
+    description: Awaiting maintainer review.
+
+  - name: wontfix
+    color: "555555"
+    description: Acknowledged but won't be addressed.
+
+  - name: duplicate
+    color: "777777"
+    description: Already reported elsewhere.
+
+  - name: dependencies
+    color: "111111"
+    description: Dependabot-driven package update.
