@@ -180,8 +180,15 @@ function numField(obj: any, keys: string[]): number {
  * bucket we have. Returns [] if no usable buckets.
  */
 function parseOpenAIHistory(json: any, windowStartMs: number): number[] {
+  // Always return 24 buckets, oldest first, ending at the current wall-clock
+  // hour. Empty / no-data responses still produce a 24-zero array so the
+  // chart renders a flat baseline instead of disappearing.
+  const nowHour = Math.floor(Date.now() / 3_600_000);
+  const startHour = nowHour - 23;
+  const out: number[] = new Array(24).fill(0);
+
   const data: any[] = Array.isArray(json?.data) ? json.data : [];
-  if (data.length === 0) return [];
+  if (data.length === 0) return out;
 
   // Bucket by hour (epoch hour). Latest hour first in the response, but we
   // don't rely on that — we sort.
@@ -193,16 +200,10 @@ function parseOpenAIHistory(json: any, windowStartMs: number): number[] {
     const tokens = numField(row, ['n_total_tokens', 'total_tokens', 'n_tokens', 'tokens']);
     buckets.set(hour, (buckets.get(hour) || 0) + tokens);
   }
-  if (buckets.size === 0) return [];
 
-  // 24 hours ending at the latest bucket we have, anchored to wall clock.
-  // We want "last 24h" relative to the latest bucket, not relative to now,
-  // because OpenAI may lag a few minutes.
-  const nowHour = Math.floor(Date.now() / 3_600_000);
-  const startHour = nowHour - 23;
-  const out: number[] = [];
-  for (let h = startHour; h <= nowHour; h++) {
-    out.push(buckets.get(h) || 0);
+  for (let i = 0; i < 24; i++) {
+    const h = startHour + i;
+    out[i] = buckets.get(h) || 0;
   }
   return out;
 }

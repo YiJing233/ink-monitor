@@ -59,10 +59,12 @@ export function encryptForUser(userId: string, plaintext: string): string {
 
 export function decryptForUser(userId: string, payload: string): string {
   const [ivHex, tagHex, ctHex] = payload.split(':');
-  if (!ivHex || !tagHex || !ctHex) throw new Error('Invalid ciphertext format');
+  if (!ivHex || !tagHex) throw new Error('Invalid ciphertext format');
   const iv = Buffer.from(ivHex, 'hex');
   const tag = Buffer.from(tagHex, 'hex');
-  const ct = Buffer.from(ctHex, 'hex');
+  // Empty plaintext encrypts to an empty ciphertext buffer; allow that
+  // case so `decrypt(encrypt("")) === ""` round-trips.
+  const ct = ctHex ? Buffer.from(ctHex, 'hex') : Buffer.alloc(0);
   const decipher = createDecipheriv(ALGO, userKey(userId), iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
