@@ -198,14 +198,19 @@ async function fetchUsageForUser(p: any, userId: string) {
 }
 
 async function _fetchWithKey(p: any, apiKey: string) {
+  // Each provider has its own fetcher module. We import the ones we
+  // need here so the registry in lib/providers/index.ts stays the
+  // single source of truth for which provider maps to which fetcher.
   const { openaiProvider } = await import('./providers/openai');
   const { anthropicProvider } = await import('./providers/anthropic');
   const { customProvider } = await import('./providers/custom');
   const { demoProvider } = await import('./providers/demo');
+  const { minimaxProvider } = await import('./providers/minimax');
   const fetcher =
     p.type === 'openai' ? openaiProvider
     : p.type === 'anthropic' ? anthropicProvider
     : p.type === 'demo' ? demoProvider
+    : p.type === 'minimax' ? minimaxProvider
     : customProvider;
   return fetcher.fetch(p, apiKey);
 }

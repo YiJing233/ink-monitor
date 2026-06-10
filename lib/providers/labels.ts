@@ -11,11 +11,15 @@ export const PROVIDER_LABELS: Record<string, string> = {
   zhipu: 'Zhipu GLM (智谱)',
   openrouter: 'OpenRouter',
   ollama: 'Ollama (local)',
+  // MiniMax is added with a parenthesized note because the auth model
+  // is unusual (web _token cookie, not a normal API key).
+  minimax: 'MiniMax (Xiyu Tech)',
 };
 
 export const PROVIDER_TYPES = [
   'openai', 'anthropic', 'custom', 'demo',
   'groq', 'mistral', 'deepseek', 'moonshot', 'zhipu', 'openrouter', 'ollama',
+  'minimax',
 ] as const;
 export type ProviderTypeKey = (typeof PROVIDER_TYPES)[number];
 
@@ -36,4 +40,8 @@ export const PROVIDER_DEFAULTS: Record<ProviderTypeKey, { base_url: string; endp
   zhipu: { base_url: 'https://open.bigmodel.cn', endpoint: '/api/paas/v4/usage', json_path: '' },
   openrouter: { base_url: 'https://openrouter.ai', endpoint: '/api/v1/usage', json_path: '' },
   ollama: { base_url: 'http://localhost:11434', endpoint: '/api/usage', json_path: '' },
+  // MiniMax uses two hard-coded endpoints; `base_url` is repurposed to
+  // hold the optional `x-group-id` override (default = platform's own
+  // testbed group). `endpoint` and `json_path` are unused.
+  minimax: { base_url: '', endpoint: '', json_path: '' },
 };

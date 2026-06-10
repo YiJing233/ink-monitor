@@ -3,6 +3,7 @@ import { openaiProvider } from './openai';
 import { anthropicProvider } from './anthropic';
 import { customProvider } from './custom';
 import { demoProvider } from './demo';
+import { minimaxProvider } from './minimax';
 import type { Provider } from '../db';
 import { decrypt } from '../crypto';
 import type { UsageSnapshot } from './types';
@@ -26,6 +27,8 @@ const REGISTRY: Record<string, { type: string; label: string; fetch: any }> = {
   zhipu: openaiProvider,
   openrouter: openaiProvider,
   ollama: openaiProvider,
+  // MiniMax has its own fetcher (different auth model + endpoint shape)
+  minimax: minimaxProvider,
 };
 
 export async function fetchUsage(p: Provider): Promise<UsageSnapshot> {

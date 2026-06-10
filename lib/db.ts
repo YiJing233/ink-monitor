@@ -168,7 +168,8 @@ export function setShareToken(userId: string, token: string | null): void {
 // --- Provider CRUD (user-scoped) ---
 export type ProviderType =
   | 'openai' | 'anthropic' | 'custom' | 'demo'
-  | 'groq' | 'mistral' | 'deepseek' | 'moonshot' | 'zhipu' | 'openrouter' | 'ollama';
+  | 'groq' | 'mistral' | 'deepseek' | 'moonshot' | 'zhipu' | 'openrouter' | 'ollama'
+  | 'minimax';
 
 export interface Provider {
   id: string;
