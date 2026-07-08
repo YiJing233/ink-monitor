@@ -22,8 +22,13 @@ export function RenderNode({ node, data }: { node: Node; data: unknown }) {
           : node.size === 'caption'
           ? { fontSize: 12 }
           : { fontSize: 16 };
+      // `prefix` lets a layout stamp a static label before the bound value
+      // (e.g. "humidity 12" without re-baking the literal into the source).
+      // The prefix is plain text, never resolved against data, so it's safe
+      // to ship in the manifest as a designer-controlled string.
       return (
         <div className={node.mono ? 'eink-mono' : undefined} style={style}>
+          {node.prefix ? <span style={{ opacity: 0.7 }}>{node.prefix}</span> : null}
           {v}
         </div>
       );
@@ -122,6 +127,13 @@ export function RenderNode({ node, data }: { node: Node; data: unknown }) {
         <div>
           {shown.map((it, i) => {
             const checked = node.check ? Boolean(it?.[node.check]) : undefined;
+            // When `primary` is omitted (e.g. an RSS feed whose select already
+            // unwrapped each item to its title string), fall back to the item
+            // itself rather than printing an empty row.
+            const primaryVal =
+              it != null && typeof it === 'object' && node.primary != null
+                ? (it as Record<string, unknown>)[node.primary]
+                : it;
             return (
               <div key={i} className="eink-row" style={{ padding: '4px 0' }}>
                 <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
@@ -130,7 +142,7 @@ export function RenderNode({ node, data }: { node: Node; data: unknown }) {
                       {checked ? '[x]' : '[ ]'}
                     </span>
                   ) : null}
-                  <span style={checked ? { textDecoration: 'line-through' } : undefined}>{String(it?.[node.primary] ?? '')}</span>
+                  <span style={checked ? { textDecoration: 'line-through' } : undefined}>{String(primaryVal ?? '')}</span>
                 </span>
                 {node.secondary ? <span className="eink-subtitle">{String(it?.[node.secondary] ?? '')}</span> : null}
               </div>

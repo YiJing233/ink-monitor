@@ -140,7 +140,34 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       base_device TEXT NOT NULL DEFAULT 'kindle-pw',
       layouts_json TEXT NOT NULL DEFAULT '{}',  -- { deviceId: Placement[] }
-      refresh_overrides_json TEXT NOT NULL DEFAULT '{}', -- { deviceId: refreshSeconds }
+      -- refresh_overrides_json contract:
+      --   JSON shape: { [deviceId]: refreshSeconds | null }
+      --
+      --   The value is a per-device cap: the user-set maximum on how
+      --   frequently the device is allowed to refresh. The display side
+      --   picks the minimum of (smallest manifest.refresh on the canvas)
+      --   and this cap. Setting a smaller cap = refreshing more often =
+      --   more e-ink ghosting + battery; setting a larger cap = the
+      --   manifest's own refresh takes over.
+      --
+      --   Server-side: the PATCH route clamps each value to the integer
+      --   range [15, 86400] seconds via zod (PATCH /api/dashboards/:id).
+      --   15s is the hard floor (anything shorter would burn the e-ink
+      --   panel) and 86400s is one day, the practical maximum a user
+      --   would ever want.
+      --
+      --   Display-side: app/display/page.tsx re-applies a floor of 15
+      --   via Math.max(15, ...) AFTER taking the min with the manifest
+      --   refresh. This is intentional defense-in-depth: legacy manifests
+      --   written before the API clamp existed may contain sub-15 values
+      --   in this column, and the renderer must never let a refresh
+      --   interval below 15 leak to the meta http-equiv=refresh tag,
+      --   which a Kindle would happily honour by thrashing the panel.
+      --
+      --   The null value (allowed by the schema) means "no override:
+      --   defer entirely to the manifests" and is the default for new
+      --   dashboards.
+      refresh_overrides_json TEXT NOT NULL DEFAULT '{}',
       display_order INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,

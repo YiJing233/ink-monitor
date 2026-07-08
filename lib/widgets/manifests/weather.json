@@ -1,0 +1,44 @@
+{
+  "v": 1,
+  "id": "weather",
+  "version": "0.1.0",
+  "name": "Weather",
+  "description": "Current conditions for a configured city via OpenWeatherMap. The user supplies an OWM_KEY secret at install; the city is per-instance config. 1x1 shows temp+cond; 2x2 adds humidity; 4x2 lays temp/wind/cond side by side.",
+  "source": {
+    "kind": "http",
+    "url": "https://api.openweathermap.org/data/2.5/weather?q={{city}}&appid={{OWM_KEY}}&units=metric",
+    "method": "GET",
+    "select": {
+      "temp": "main.temp",
+      "cond": "weather[0].main",
+      "icon": "weather[0].icon",
+      "humidity": "main.humidity",
+      "wind": "wind.speed"
+    }
+  },
+  "families": ["1x1", "2x2", "4x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "temp" }, "unit": "°C", "sub": { "$": "cond" } },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "temp" }, "unit": "°C", "sub": { "$": "cond" } },
+        { "t": "text", "value": { "$": "humidity" }, "prefix": "humidity " }
+      ]
+    },
+    "4x2": {
+      "t": "row",
+      "children": [
+        { "t": "bignum", "value": { "$": "temp" }, "unit": "°C" },
+        { "t": "text", "value": { "$": "wind" }, "prefix": "wind " },
+        { "t": "text", "value": { "$": "cond" } }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["api.openweathermap.org"],
+    "secrets": ["OWM_KEY"],
+    "writes": false
+  },
+  "refresh": 600
+}

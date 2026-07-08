@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { safeFetch } from '@/lib/widgets/safe-fetch';
-import { dither, encodeGrayPng } from '@/lib/widgets/dither';
+import { dither, encodePng1Bit } from '@/lib/widgets/dither';
 import { verifyValue } from '@/lib/widgets/sign';
 
 /**
@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
   const cachePath = path.join(process.cwd(), cacheDir, cacheKey);
   try {
     const hit = await fs.readFile(cachePath);
-    return new Response(new Uint8Array(hit), { headers: { 'Content-Type': 'image/png', 'X-Asset-Cache': 'HIT' } });
+    return new Response(new Uint8Array(hit), {
+      headers: { 'Content-Type': 'image/png', 'X-Asset-Cache': 'HIT', 'X-Dither-Bits': '1' },
+    });
   } catch {
     /* miss */
   }
@@ -65,13 +67,18 @@ export async function GET(req: NextRequest) {
       .raw()
       .toBuffer({ resolveWithObject: true });
     const out = dither(style, new Uint8Array(data), info.width, info.height);
-    const png = encodeGrayPng(out, info.width, info.height);
+    const png = encodePng1Bit(out, info.width, info.height);
     // Best-effort write — never fails the response.
     fs.mkdir(path.join(process.cwd(), cacheDir), { recursive: true })
       .then(() => fs.writeFile(cachePath, png))
       .catch(() => {});
     return new Response(new Uint8Array(png), {
-      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400, immutable' },
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400, immutable',
+        // 1-bit e-ink PNG; clients/SDRs can size caches against this.
+        'X-Dither-Bits': '1',
+      },
     });
   } catch {
     return Response.redirect(src, 302);

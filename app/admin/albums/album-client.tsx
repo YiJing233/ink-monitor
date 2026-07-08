@@ -5,6 +5,12 @@ import { useRef, useState } from 'react';
 interface Item {
   src: string;
   caption?: string;
+  // F23: present on disk / vercel-blob / s3 store items — the store-internal
+  // handle (disk filename, Vercel pathname, S3 key) used to delete the
+  // underlying bytes. The `urls` store never sets this (no remote bytes
+  // owned by us), which is by design: external URL items are not deletable
+  // from here.
+  _fileId?: string;
 }
 
 export default function AlbumClient({
@@ -38,10 +44,13 @@ export default function AlbumClient({
 
   async function remove(idx: number) {
     const it = items[idx];
-    // For disk store, delete the file by fileId (parsed from src).
-    const m = it.src.match(/\/api\/album-asset\/[^/]+\/[^/]+\/([0-9a-f]+)/);
-    if (m) {
-      await fetch(`/api/albums/${encodeURIComponent(album)}/${m[1]}`, { method: 'DELETE' });
+    // F23: prefer the store-provided `_fileId` over parsing the URL. The
+    // disk / vercel-blob / s3 stores all set this; the `urls` store
+    // doesn't, since external URLs aren't deletable from the platform.
+    if (it._fileId) {
+      await fetch(`/api/albums/${encodeURIComponent(album)}/${encodeURIComponent(it._fileId)}`, {
+        method: 'DELETE',
+      });
     }
     const next = items.filter((_, i) => i !== idx);
     await replaceAll(next);

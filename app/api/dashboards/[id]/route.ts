@@ -29,14 +29,26 @@ const PlacementSchema = z.object({
   h: z.number().int().min(1),
 });
 
+// F22: refresh_overrides contract. The map is keyed by `DeviceId` and each
+// value is either an integer in [15, 86400] (a per-device cap on refresh
+// frequency, in seconds) or `null` (no override for that device). Values
+// outside this range would either burn the e-ink panel (< 15s) or
+// effectively disable refresh (> 1 day), so we reject up front rather than
+// silently clamping on the read path. The display side also re-applies
+// the floor of 15s as defense-in-depth for legacy rows — see the
+// `refresh_overrides_json` comment in `lib/db.ts`.
+const DeviceIdSchema = z.enum(DEVICE_IDS as [string, ...string[]]);
+const RefreshOverrideValueSchema = z.union([z.number().int().min(15).max(86400), z.null()]);
+const RefreshOverridesSchema = z.record(DeviceIdSchema, RefreshOverrideValueSchema);
+
 const PatchSchema = z.object({
   name: z.string().min(1).max(60).optional(),
-  base_device: z.enum(DEVICE_IDS as [string, ...string[]]).optional(),
+  base_device: DeviceIdSchema.optional(),
   display_order: z.number().int().optional(),
   // layouts: { [deviceId]: Placement[] }
   layouts: z.record(z.array(PlacementSchema)).optional(),
   // refresh_overrides: { [deviceId]: refreshSeconds | null }
-  refresh_overrides: z.record(z.union([z.number().int().min(15).max(86400), z.null()])).optional(),
+  refresh_overrides: RefreshOverridesSchema.optional(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

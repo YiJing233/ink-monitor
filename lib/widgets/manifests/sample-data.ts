@@ -43,6 +43,33 @@ export const countdownSample = resolveCountdownSource(
   'Launch Day',
 );
 
+/** Phase 1 non-usage built-in: a static shape mirroring what OpenWeatherMap's
+ *  `/data/2.5/weather` returns when `select` is applied. The http source is
+ *  not exercised at preview time (we don't want to call OWM in tests), so the
+ *  renderer + selectPath both run against this hand-built response. */
+export const weatherSample = {
+  temp: 18.4,
+  cond: 'Clouds',
+  icon: '03d',
+  humidity: 62,
+  wind: 3.6,
+};
+
+/** Phase 1 non-usage built-in: a minimal JSON Feed / RSS-as-JSON shape so the
+ *  `list` node can render the items array without a real network call. The
+ *  channel.title is what the `text` node in 2x2/4x4 headers binds to. */
+export const rssSample = {
+  title: 'Hacker News — Front Page',
+  items: [
+    'Show HN: I rewrote X in 500 lines of Rust',
+    'Why the new e-ink displays are finally good enough',
+    'The cost of premature optimization in 2026',
+    'A field guide to declarative widget IRs',
+    'On keeping a personal e-ink dashboard alive for a year',
+    'Notes on building a multi-tenant static-render SaaS',
+  ],
+};
+
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
     name: 'OpenAI',
@@ -76,4 +103,6 @@ export const SAMPLE_DATA: Record<string, unknown> = {
   },
   clock: clockSample,
   countdown: countdownSample,
+  weather: weatherSample,
+  rss: rssSample,
 };

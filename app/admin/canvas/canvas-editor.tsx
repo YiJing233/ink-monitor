@@ -12,6 +12,23 @@
  * Palette = built-ins + the user's library (custom/installed, marked ◇). Built-ins
  * save by manifestId; custom save inline as a manifest.
  *
+ * EditorItem namespace:
+ *   - `widgetInstanceId`  : the *widget instance* id (the row id in the
+ *     `widgets` table; persisted as `widgetId` in `Placement` and the
+ *     `layouts` payload). Stable per instance; survives reloads. For
+ *     newly-added items the editor mints a fresh client-side id — it gets
+ *     replaced with a real server id on the next save+reload.
+ *   - `manifestId`        : the *manifest* id (the palette key — e.g.
+ *     "api-usage", "stocks-table"). Identifies the widget TYPE, not the
+ *     instance. Two EditorItems can share a manifestId with different
+ *     widgetInstanceIds. Sent to the API as `manifestId` (for built-ins)
+ *     or as an inline `manifest` (for custom).
+ *
+ * Don't conflate the two: `widgetInstanceId` is identity (which row), and
+ * `manifestId` is type (what it renders). The two are linked through the
+ * `widgets` table (instance.manifest_json.id === manifestId) but they
+ * travel on different wires and must be tracked separately.
+ *
  * Known limit: overlaps are allowed (no auto-resolve) — see ARCHITECTURE.md.
  */
 import { useMemo, useRef, useState } from 'react';
@@ -21,8 +38,10 @@ import { BUILTIN_LIST } from '@/lib/widgets/registry';
 import type { Manifest } from '@/lib/widgets/ir';
 
 export interface EditorItem {
-  id: string;
-  m: string; // manifest id
+  /** Widget instance id (== `widgets.id` / `Placement.widgetId`). Identity. */
+  widgetInstanceId: string;
+  /** Manifest id (== palette key, e.g. "api-usage"). Type. */
+  manifestId: string;
   x: number;
   y: number;
   w: number;
@@ -87,14 +106,20 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
   }
 
   const clampItem = (it: EditorItem, d = device): EditorItem => {
-    const c = clampToGrid({ id: it.id, widgetId: it.m, x: it.x, y: it.y, w: it.w, h: it.h }, d);
+    const c = clampToGrid(
+      { id: it.widgetInstanceId, widgetId: it.manifestId, x: it.x, y: it.y, w: it.w, h: it.h },
+      d,
+    );
     return { ...it, x: c.x, y: c.y, w: c.w, h: c.h };
   };
 
   const previewSrc = useMemo(
     () =>
       `/preview?d=${encodeURIComponent(
-        JSON.stringify({ device: deviceId, items: items.map(({ m, x, y, w, h }) => ({ m, x, y, w, h })) }),
+        JSON.stringify({
+          device: deviceId,
+          items: items.map(({ manifestId, x, y, w, h }) => ({ m: manifestId, x, y, w, h })),
+        }),
       )}`,
     [deviceId, items],
   );
@@ -106,13 +131,13 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
     const dyc = Math.round((e.clientY - d.sy) / step);
     updateItems((prev) => {
       const others: Placement[] = prev
-        .filter((p) => p.id !== d.id)
-        .map((p) => ({ id: p.id, widgetId: p.m, x: p.x, y: p.y, w: p.w, h: p.h }));
+        .filter((p) => p.widgetInstanceId !== d.id)
+        .map((p) => ({ id: p.widgetInstanceId, widgetId: p.manifestId, x: p.x, y: p.y, w: p.w, h: p.h }));
       return prev.map((p) => {
-        if (p.id !== d.id) return p;
+        if (p.widgetInstanceId !== d.id) return p;
         const moved = d.mode === 'move' ? { ...p, x: d.ox + dxc, y: d.oy + dyc } : { ...p, w: Math.max(1, d.ow + dxc), h: Math.max(1, d.oh + dyc) };
         const clamped = clampItem(moved);
-        const candidate: Placement = { id: clamped.id, widgetId: clamped.m, x: clamped.x, y: clamped.y, w: clamped.w, h: clamped.h };
+        const candidate: Placement = { id: clamped.widgetInstanceId, widgetId: clamped.manifestId, x: clamped.x, y: clamped.y, w: clamped.w, h: clamped.h };
         if (hasCollision(others, candidate)) return p; // block the move; keep current position
         return clamped;
       });
@@ -126,8 +151,8 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
   function startDrag(e: React.PointerEvent, it: EditorItem, mode: 'move' | 'resize') {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(it.id);
-    drag.current = { id: it.id, mode, sx: e.clientX, sy: e.clientY, ox: it.x, oy: it.y, ow: it.w, oh: it.h };
+    setSelected(it.widgetInstanceId);
+    drag.current = { id: it.widgetInstanceId, mode, sx: e.clientX, sy: e.clientY, ox: it.x, oy: it.y, ow: it.w, oh: it.h };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   }
@@ -136,12 +161,14 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
     const entry = catalog.get(manifestId);
     if (!entry) return;
     const { w, h } = famWH(entry.manifest.families[0]);
-    const id = 'w' + Math.random().toString(36).slice(2, 7);
-    updateItems((prev) => [...prev, clampItem({ id, m: manifestId, x: 0, y: 0, w, h })]);
-    setSelected(id);
+    // Client-minted widget instance id — replaced with a real server id on
+    // the next save+reload. Stable for the editor's lifetime.
+    const widgetInstanceId = 'w' + Math.random().toString(36).slice(2, 7);
+    updateItems((prev) => [...prev, clampItem({ widgetInstanceId, manifestId, x: 0, y: 0, w, h })]);
+    setSelected(widgetInstanceId);
   }
   function removeWidget(id: string) {
-    updateItems((prev) => prev.filter((p) => p.id !== id));
+    updateItems((prev) => prev.filter((p) => p.widgetInstanceId !== id));
     if (selected === id) setSelected(null);
   }
   function changeDevice(id: DeviceId) {
@@ -149,9 +176,16 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
     setItemsByDevice((prev) => {
       if (prev[id]) return prev; // already have this device's layout (saved or edited)
       const base = prev[deviceId] ?? items;
-      const pls = base.map((it) => ({ id: it.id, widgetId: it.m, x: it.x, y: it.y, w: it.w, h: it.h }));
+      const pls = base.map((it) => ({ id: it.widgetInstanceId, widgetId: it.manifestId, x: it.x, y: it.y, w: it.w, h: it.h }));
       const reflowed = autoReflow(pls, nd);
-      const seeded: EditorItem[] = reflowed.map((p, i) => ({ id: pls[i].id, m: pls[i].widgetId, x: p.x, y: p.y, w: p.w, h: p.h }));
+      const seeded: EditorItem[] = reflowed.map((p, i) => ({
+        widgetInstanceId: pls[i].id,
+        manifestId: pls[i].widgetId,
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+      }));
       return { ...prev, [id]: seeded };
     });
     setDeviceId(id);
@@ -179,9 +213,15 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         body: JSON.stringify({
           device: deviceId,
           items: items.map((it) => {
-            const e = catalog.get(it.m);
+            const e = catalog.get(it.manifestId);
             const base = { x: it.x, y: it.y, w: it.w, h: it.h };
-            return e && !e.builtin ? { manifest: e.manifest, ...base } : { manifestId: it.m, ...base };
+            // Built-ins travel as `manifestId` (server re-resolves the
+            // palette key); custom widgets travel as inline `manifest` so
+            // edits persist with the layout. `widgetId` is intentionally
+            // omitted — every save re-instantiates, so the server mints a
+            // fresh id (the editor's local `widgetInstanceId` is replaced
+            // on next reload).
+            return e && !e.builtin ? { manifest: e.manifest, ...base } : { manifestId: it.manifestId, ...base };
           }),
         }),
       });
@@ -289,14 +329,14 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
             onPointerDown={() => setSelected(null)}
           >
             {items.map((it) => {
-              const entry = catalog.get(it.m);
+              const entry = catalog.get(it.manifestId);
               if (!entry) return null;
               const m = entry.manifest;
               const fam = resolveFamily(m.families, it.w, it.h);
-              const isSel = selected === it.id;
+              const isSel = selected === it.widgetInstanceId;
               return (
                 <div
-                  key={it.id}
+                  key={it.widgetInstanceId}
                   onPointerDown={(e) => startDrag(e, it, 'move')}
                   style={{
                     position: 'absolute',
@@ -325,7 +365,7 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
                   <button
                     onPointerDown={(e) => {
                       e.stopPropagation();
-                      removeWidget(it.id);
+                      removeWidget(it.widgetInstanceId);
                     }}
                     title="remove"
                     style={{

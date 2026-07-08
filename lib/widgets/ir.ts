@@ -31,12 +31,16 @@ export type Bind = z.infer<typeof BindSchema>;
 
 // --- Render nodes (recursive, discriminated on `t`) ---
 export type Node =
-  | { t: 'text'; value: Bind; size?: 'title' | 'body' | 'caption'; mono?: boolean }
+  | { t: 'text'; value: Bind; size?: 'title' | 'body' | 'caption'; mono?: boolean; prefix?: string }
   | { t: 'bignum'; value: Bind; unit?: string; sub?: Bind }
   | { t: 'metric'; label?: string; value: Bind; max?: Bind; unit?: string; reset?: Bind; window?: string }
   | { t: 'series'; kind: 'bar' | 'spark'; data: Bind; window?: string; unit?: string }
   | { t: 'table'; columns: TableCol[]; rows: Bind }
-  | { t: 'list'; items: Bind; primary: string; secondary?: string; check?: string; max?: number }
+  // `primary` is optional: when omitted, each list item is rendered as a
+  // primitive (`String(it)`). Lets a manifest bind a string-array select
+  // (e.g. an RSS feed's `item[*].title`) directly without an intermediate
+  // re-shape.
+  | { t: 'list'; items: Bind; primary?: string; secondary?: string; check?: string; max?: number }
   | { t: 'image'; src: Bind; fit?: 'cover' | 'contain'; dither?: 'atkinson' | 'floyd' | 'none'; alt?: string }
   | { t: 'qr'; value: Bind; caption?: Bind }
   | { t: 'divider' }
@@ -60,12 +64,12 @@ const TableColSchema = z.object({
 
 export const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion('t', [
-    z.object({ t: z.literal('text'), value: BindSchema, size: z.enum(['title', 'body', 'caption']).optional(), mono: z.boolean().optional() }),
+    z.object({ t: z.literal('text'), value: BindSchema, size: z.enum(['title', 'body', 'caption']).optional(), mono: z.boolean().optional(), prefix: z.string().optional() }),
     z.object({ t: z.literal('bignum'), value: BindSchema, unit: z.string().optional(), sub: BindSchema.optional() }),
     z.object({ t: z.literal('metric'), label: z.string().optional(), value: BindSchema, max: BindSchema.optional(), unit: z.string().optional(), reset: BindSchema.optional(), window: z.string().optional() }),
     z.object({ t: z.literal('series'), kind: z.enum(['bar', 'spark']), data: BindSchema, window: z.string().optional(), unit: z.string().optional() }),
     z.object({ t: z.literal('table'), columns: z.array(TableColSchema), rows: BindSchema }),
-    z.object({ t: z.literal('list'), items: BindSchema, primary: z.string(), secondary: z.string().optional(), check: z.string().optional(), max: z.number().optional() }),
+    z.object({ t: z.literal('list'), items: BindSchema, primary: z.string().optional(), secondary: z.string().optional(), check: z.string().optional(), max: z.number().optional() }),
     z.object({ t: z.literal('image'), src: BindSchema, fit: z.enum(['cover', 'contain']).optional(), dither: z.enum(['atkinson', 'floyd', 'none']).optional(), alt: z.string().optional() }),
     z.object({ t: z.literal('qr'), value: BindSchema, caption: BindSchema.optional() }),
     z.object({ t: z.literal('divider') }),

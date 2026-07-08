@@ -53,6 +53,8 @@ function loadInitial(userId: string, catalog: Map<string, Manifest>): EditorInit
   if (!dash) return { dashboardId: null, name: 'My dashboard', device: 'kindle-pw', layouts: {}, refreshOverrides: {} };
 
   const device = dash.base_device as DeviceId;
+  // The on-disk layout uses `widgetId` (the *instance* id) — we resolve it
+  // back to a `manifestId` by looking up the row in the `widgets` table.
   let raw: Record<string, { widgetId: string; x: number; y: number; w: number; h: number }[]> = {};
   try {
     raw = JSON.parse(dash.layouts_json || '{}');
@@ -67,14 +69,14 @@ function loadInitial(userId: string, catalog: Map<string, Manifest>): EditorInit
     for (const p of placements) {
       const w = byId.get(p.widgetId);
       if (!w) continue;
-      let m = '';
+      let manifestId = '';
       try {
-        m = JSON.parse(w.manifest_json).id;
+        manifestId = JSON.parse(w.manifest_json).id;
       } catch {
         /* ignore */
       }
-      if (!m || !catalog.has(m)) continue;
-      arr.push({ id: p.widgetId, m, x: p.x, y: p.y, w: p.w, h: p.h });
+      if (!manifestId || !catalog.has(manifestId)) continue;
+      arr.push({ widgetInstanceId: p.widgetId, manifestId, x: p.x, y: p.y, w: p.w, h: p.h });
     }
     layouts[dev as DeviceId] = arr;
   }

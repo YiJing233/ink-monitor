@@ -1,0 +1,36 @@
+{
+  "v": 1,
+  "id": "rss",
+  "version": "0.1.0",
+  "name": "RSS",
+  "description": "Headlines from any public feed. The user supplies the feedUrl as config. Egress allowlist is intentionally empty — the widget reaches the URL the user typed, so the install prompt surfaces the unrestricted warning and the user is in control. JSON-shaped feeds (or a JSON converter) are required; the http source parses a JSON body.",
+  "source": {
+    "kind": "http",
+    "url": "{{feedUrl}}",
+    "method": "GET",
+    "select": {
+      "title": "rss.channel.title",
+      "items": "rss.channel.item[*].title"
+    }
+  },
+  "families": ["1x2", "2x2", "4x4"],
+  "layout": {
+    "1x2": { "t": "list", "items": { "$": "items" }, "max": 3 },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "list", "items": { "$": "items" }, "max": 5 }
+      ]
+    },
+    "4x4": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "list", "items": { "$": "items" }, "max": 10 }
+      ]
+    }
+  },
+  "capabilities": { "egress": [], "writes": false },
+  "refresh": 900
+}

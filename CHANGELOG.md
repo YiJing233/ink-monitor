@@ -7,6 +7,26 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Phase 1 non-usage built-ins: `weather` + `rss`.** Two new declarative
+  `http` manifests in `lib/widgets/manifests/` (registered in
+  `BUILTIN_MANIFESTS` and validated by `ManifestSchema`). `weather` calls
+  OpenWeatherMap's `/data/2.5/weather` with a templated `{{city}}` +
+  user-supplied `{{OWM_KEY}}` secret, projects the response with JSONPath
+  `select` (`temp`, `cond`, `humidity`, `wind`, `icon`), and renders
+  `bignum`+`text` in `1x1 / 2x2 / 4x2`; egress is pinned to
+  `api.openweathermap.org`. `rss` is a generic feed reader bound to
+  `{{feedUrl}}` (any public JSON-shaped feed) with an *empty* egress
+  allowlist — the install prompt therefore emits the `EGRESS_UNRESTRICTED`
+  notice, surfacing the trade-off to the user instead of silently allowing
+  arbitrary outbound requests. Renders a `list` of titles in
+  `1x2 / 2x2 / 4x4` with a header. IR vocabulary: `text.prefix?` (designer-
+  controlled static label prefixed to a bound value, e.g. "humidity 62") and
+  `list.primary?` is now optional (an omitted `primary` falls back to the
+  item itself, so an RSS select that already unwrapped to `item[*].title`
+  works without an intermediate re-shape). Sample data added to
+  `manifests/sample-data.ts`; `applySelect`-level tests in
+  `__tests__/weather.test.ts` and `__tests__/rss.test.ts` cover both the
+  manifest validation and the post-select shape. No new dependencies.
 - **Phase 1 non-usage built-ins: `clock` + `countdown`.** Two new manifests
   in `lib/widgets/manifests/` registered alongside the existing Phase 0
   references. `clock` reads a per-user time zone from `settings:clock`
@@ -131,6 +151,35 @@ All notable changes to Ink Monitor are documented here. The format follows
   route + `assertSafeAlbumPath()` with `path.resolve` prefix assertion
   inside `lib/widgets/album-store.ts`. `removeFile` only deletes items
   that actually exist in `list()`. Covered by 10 new security tests.
+- **Canvas editor conflated `widgetId` and `manifestId` in `EditorItem`.**
+  The internal `id` field carried a widget *instance* id while the
+  single-letter `m` field carried a *manifest* id — they lived in the same
+  struct without naming that difference, which made `placement`/`widgetId`
+  mappings easy to get wrong (e.g. using the manifest id where an
+  instance id was needed). Now: `EditorItem` has explicit
+  `widgetInstanceId` (identity) and `manifestId` (type), with a docstring
+  in `canvas-editor.tsx` distinguishing them. API payloads are
+  unchanged — the PUT body still sends `manifestId` (for built-ins) /
+  `manifest` (for custom) and the `?d=<…>` preview URL still uses the
+  `{m, …}` shorthand accepted by `/preview`.
+- **Canvas editor `m` field in `EditorItem` was the same shape as a
+  widget `widgetId`.** Subsumed by the rename above.
+- **`album-client.tsx` parsed the `fileId` out of `/api/album-asset/…/…/<id>`
+  via a regex on `it.src`.** That worked only for the disk store; the
+  vercel-blob and s3 stores host bytes at remote URLs that don't match
+  the pattern, so deletion silently did nothing. Now: the client reads
+  the store-provided `_fileId` field on each `Item` (disk/vercel-blob/s3
+  all set it). The `urls` store still doesn't, which is by design —
+  external URL items aren't deletable from the platform.
+- **Documented `refresh_overrides` contract.** `lib/db.ts` now has an
+  inline comment on `refresh_overrides_json` spelling out (a) it's a
+  *per-device cap* on refresh frequency in seconds, (b) the server
+  clamps to `[15, 86400]` via the PATCH zod schema, and (c) the display
+  side re-applies a floor of 15 as defense-in-depth against legacy rows
+  written before the clamp existed. The PATCH schema in
+  `app/api/dashboards/[id]/route.ts` is now keyed by `DeviceId` and
+  rejects unknown device ids, so a typo in the field name surfaces as a
+  400 instead of being silently ignored.
 - **`?u=<userId>` and `x-ink-user` auth bypass.** `/display` and
   `/api/snapshot` no longer honour these legacy fallbacks; only session
   cookie or `?share=<token>` is accepted. Unauthenticated reads now 401 /

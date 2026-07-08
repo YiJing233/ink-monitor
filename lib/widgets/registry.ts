@@ -12,6 +12,8 @@ import gallery from './manifests/gallery.json';
 import stocksTable from './manifests/stocks-table.json';
 import clock from './manifests/clock.json';
 import countdown from './manifests/countdown.json';
+import weather from './manifests/weather.json';
+import rss from './manifests/rss.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -21,6 +23,8 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   gallery: validateManifest(gallery),
   clock: validateManifest(clock),
   countdown: validateManifest(countdown),
+  weather: validateManifest(weather),
+  rss: validateManifest(rss),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);
