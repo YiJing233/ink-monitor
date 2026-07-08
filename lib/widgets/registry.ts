@@ -10,6 +10,8 @@ import apiUsage from './manifests/api-usage.json';
 import todoLark from './manifests/todo-lark.json';
 import gallery from './manifests/gallery.json';
 import stocksTable from './manifests/stocks-table.json';
+import clock from './manifests/clock.json';
+import countdown from './manifests/countdown.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -17,6 +19,8 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   'stocks-table': validateManifest(stocksTable),
   'todo-lark': validateManifest(todoLark),
   gallery: validateManifest(gallery),
+  clock: validateManifest(clock),
+  countdown: validateManifest(countdown),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);

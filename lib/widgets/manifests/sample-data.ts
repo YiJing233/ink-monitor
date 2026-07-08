@@ -4,8 +4,13 @@
  * backend. In production these objects come from the Source layer (a builtin
  * fetcher, a declarative HTTP call, owned state, or the asset pipeline).
  *
+ * Clock/countdown samples are computed at module-load time by the same pure
+ * helpers the Source layer uses, so previews stay current without any I/O.
+ *
  * Client-safe.
  */
+
+import { resolveClockSource, resolveCountdownSource } from '../builtin-sources';
 
 // A tiny B&W SVG stands in for a server-dithered photo so the album always
 // renders (no network, no asset pipeline needed for the skeleton).
@@ -23,6 +28,19 @@ const SAMPLE_PHOTO =
 const HOURLY_24 = [
   120, 180, 90, 60, 40, 30, 55, 210, 480, 720, 910, 1040, 980, 1100, 1230, 880, 760, 540, 610, 720, 430, 280, 190, 140,
 ];
+
+/** Phase 1 non-usage built-in: live local time. Computed at module load so the
+ *  preview always shows "now". Force UTC at sample time so the gallery card
+ *  is reproducible regardless of where the preview was opened. */
+export const clockSample = resolveClockSource('UTC');
+
+/** Phase 1 non-usage built-in: days/hours until a target. Defaults to 30 days
+ *  out so the preview is positive and visually meaningful; per-instance
+ *  countdowns override via `settings:countdown:<id>` in the user's owned_state. */
+export const countdownSample = resolveCountdownSource(
+  Date.now() + 30 * 86_400_000,
+  'Launch Day',
+);
 
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
@@ -55,4 +73,6 @@ export const SAMPLE_DATA: Record<string, unknown> = {
     current: SAMPLE_PHOTO,
     caption: '富士山 · 2025 春',
   },
+  clock: clockSample,
+  countdown: countdownSample,
 };

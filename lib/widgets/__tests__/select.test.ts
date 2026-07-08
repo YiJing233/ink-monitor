@@ -64,6 +64,28 @@ describe('selectPath', () => {
     expect(selectPath(list, '[1].items[0].v')).toBe(3);
     expect(selectPath(list, '[*].items[0].v')).toEqual([1, 3]);
   });
+
+  // F11: a JSON body carrying a __proto__ / constructor / prototype key
+  // must not let the walker reach Object.prototype (or pollute downstream
+  // objects via prototype writes).
+  it('refuses to walk __proto__ / constructor / prototype', () => {
+    // Construct a payload where `__proto__` is an own data property — the
+    // exact shape an attacker would ship via a hostile API response.
+    const payload = JSON.parse('{"__proto__":{"secret":"leaked"},"safe":1}');
+    expect(selectPath(payload, '__proto__.secret')).toBeUndefined();
+    expect(selectPath(payload, 'constructor')).toBeUndefined();
+    expect(selectPath(payload, 'constructor.prototype')).toBeUndefined();
+    expect(selectPath(payload, 'prototype')).toBeUndefined();
+    // The non-proto lookup still works.
+    expect(selectPath(payload, 'safe')).toBe(1);
+    // And we must not have polluted Object.prototype with the payload.
+    expect((Object.prototype as unknown as { secret?: string }).secret).toBeUndefined();
+  });
+  it('refuses prototype-chain lookup even on arrays', () => {
+    const arr = JSON.parse('[1,2,3]');
+    expect(selectPath(arr, 'constructor')).toBeUndefined();
+    expect(selectPath(arr, '__proto__')).toBeUndefined();
+  });
 });
 
 describe('applySelect', () => {

@@ -14,6 +14,10 @@ export interface ClockData {
   hour: number;
   /** 0-59 in the requested time zone (no leading zero). */
   minute: number;
+  /** Pre-formatted "HH:MM" in the requested time zone (zero-padded). The
+   *  `bignum` node can't template-suffix a `Bind`, so we ship the full string
+   *  as a convenience field for layouts that want "14:30" in one number. */
+  time: string;
   /** Localized weekday name (e.g. "Wednesday", "星期三") — depends on the JS runtime's locale data. */
   weekday: string;
   /** Human-readable date string (e.g. "July 8, 2026") — already localized. */
@@ -67,10 +71,15 @@ export function resolveClockSource(tz?: string): ClockData {
   return {
     hour,
     minute,
+    time: `${pad2(hour)}:${pad2(minute)}`,
     weekday: lookup.weekday ?? '',
     date: formatDateString(lookup),
     tz: lookup.timeZoneName || safeTz,
   };
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
 }
 
 /**

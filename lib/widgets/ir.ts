@@ -32,7 +32,7 @@ export type Bind = z.infer<typeof BindSchema>;
 // --- Render nodes (recursive, discriminated on `t`) ---
 export type Node =
   | { t: 'text'; value: Bind; size?: 'title' | 'body' | 'caption'; mono?: boolean }
-  | { t: 'bignum'; value: Bind; unit?: Bind; sub?: Bind }
+  | { t: 'bignum'; value: Bind; unit?: string; sub?: Bind }
   | { t: 'metric'; label?: string; value: Bind; max?: Bind; unit?: string; reset?: Bind; window?: string }
   | { t: 'series'; kind: 'bar' | 'spark'; data: Bind; window?: string; unit?: string }
   | { t: 'table'; columns: TableCol[]; rows: Bind }
@@ -61,7 +61,7 @@ const TableColSchema = z.object({
 export const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion('t', [
     z.object({ t: z.literal('text'), value: BindSchema, size: z.enum(['title', 'body', 'caption']).optional(), mono: z.boolean().optional() }),
-    z.object({ t: z.literal('bignum'), value: BindSchema, unit: BindSchema.optional(), sub: BindSchema.optional() }),
+    z.object({ t: z.literal('bignum'), value: BindSchema, unit: z.string().optional(), sub: BindSchema.optional() }),
     z.object({ t: z.literal('metric'), label: z.string().optional(), value: BindSchema, max: BindSchema.optional(), unit: z.string().optional(), reset: BindSchema.optional(), window: z.string().optional() }),
     z.object({ t: z.literal('series'), kind: z.enum(['bar', 'spark']), data: BindSchema, window: z.string().optional(), unit: z.string().optional() }),
     z.object({ t: z.literal('table'), columns: z.array(TableColSchema), rows: BindSchema }),

@@ -33,14 +33,11 @@ export function RenderNode({ node, data }: { node: Node; data: unknown }) {
       const v = resolveBind(data, node.value);
       const num = typeof v === 'number' ? formatNumber(v, Number.isInteger(v) ? 0 : 1) : String(v ?? '—');
       const sub = node.sub != null ? resolveString(data, node.sub) : '';
-      // `unit` accepts a Bind so dynamic suffixes work (e.g. clock minute).
-      const unit = node.unit != null ? resolveBind(data, node.unit) : null;
-      const unitText = unit == null ? '' : typeof unit === 'number' ? formatNumber(unit, 0) : String(unit);
       return (
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
           <div className="eink-mono" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1 }}>
             {num}
-            {unitText ? <span style={{ fontSize: 20 }}> {unitText}</span> : null}
+            {node.unit ? <span style={{ fontSize: 20 }}> {node.unit}</span> : null}
           </div>
           {sub ? (
             <div className="eink-subtitle" style={{ marginTop: 4 }}>

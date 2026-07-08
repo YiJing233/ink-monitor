@@ -52,7 +52,7 @@ export async function resolveSource(
     case 'http':
       return resolveHttp(manifest, src, config, ctx);
     case 'owned':
-      return resolveOwnedState(ctx.userId, src.store);
+      return resolveOwnedState(ctx.userId, src.store, config);
     case 'asset':
       return resolveAsset(config);
     case 'album':
@@ -67,21 +67,32 @@ export async function resolveSource(
  * user preferences (tz, target-date, label) in the same `owned_state` table as
  * generic TODO/notes data, so we dispatch by store key here rather than in the
  * manifest itself — keeps the IR fully declarative.
+ *
+ * The store path supports the same `{{config-key}}` substitution as the `http`
+ * source's URL, so a manifest can declare `settings:countdown:{{instanceId}}`
+ * and the widget instance provides its id via `config` — giving each placed
+ * countdown its own private store without re-validating the manifest per
+ * instance.
  */
-async function resolveOwnedState(userId: string, store: string): Promise<unknown> {
-  if (store === CLOCK_STORE) {
+async function resolveOwnedState(
+  userId: string,
+  store: string,
+  config: Record<string, unknown> = {},
+): Promise<unknown> {
+  const resolvedStore = store.replace(/\{\{(\w+)\}\}/g, (_, k) => String(config[k] ?? ''));
+  if (resolvedStore === CLOCK_STORE) {
     // Settings object: { tz?: string }. Missing => UTC default inside the helper.
-    const settings = (await getOwnedState(userId, store)) as { tz?: string } | null;
+    const settings = (await getOwnedState(userId, resolvedStore)) as { tz?: string } | null;
     return resolveClockSource(settings?.tz);
   }
-  if (store.startsWith(COUNTDOWN_STORE_PREFIX)) {
+  if (resolvedStore.startsWith(COUNTDOWN_STORE_PREFIX)) {
     // Per-instance settings object: { target: ISO | ms, label?: string }.
-    const settings = (await getOwnedState(userId, store)) as
+    const settings = (await getOwnedState(userId, resolvedStore)) as
       | { target?: number | string; label?: string }
       | null;
     return resolveCountdownSource(settings?.target, settings?.label ?? 'Countdown');
   }
-  return (await getOwnedState(userId, store)) ?? { items: [] };
+  return (await getOwnedState(userId, resolvedStore)) ?? { items: [] };
 }
 
 async function resolveBuiltin(ref: string, config: Record<string, unknown>, ctx: ResolveCtx): Promise<unknown> {

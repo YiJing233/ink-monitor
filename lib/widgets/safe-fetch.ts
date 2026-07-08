@@ -8,6 +8,33 @@
  *
  * `ipIsBlocked` / `hostAllowed` are pure and unit-tested; `safeFetch` adds DNS
  * resolution, manual redirect re-validation, a timeout, and a byte cap.
+ *
+ * DNS-rebinding defense (F4):
+ * `dns.lookup` runs in user space and returns a snapshot. The actual `fetch`
+ * triggers a second, independent resolver call in undici / libuv — and an
+ * attacker controlling the authoritative DNS for a host can return a public
+ * IP on the first lookup (passing our IP block-list) and a private/metadata
+ * IP on the second (e.g. 127.0.0.1, 169.254.169.254) to bypass SSRF.
+ *
+ * The bullet-proof fix is to pin the TCP connection to the IP we validated
+ * (undici Agent with `connect.hostname = resolvedIp, connect.servername =
+ * hostname`, or `https.request({ lookup })`). Without a custom dispatcher
+ * dependency we can't pin, so we layer two best-effort defenses instead:
+ *
+ *   1. Re-resolve the hostname immediately before `fetch` and reject if the
+ *      new answer set contains a blocked address. This narrows the TOCTOU
+ *      window — the attacker has to flip DNS between two synchronous calls
+ *      in the same tick — and is cheap. It does NOT eliminate the race; the
+ *      final fix is to deploy with a dispatcher that pins the connection.
+ *
+ *   2. After `fetch`, compare `response.url` to the request URL host. We
+ *      pass `redirect: 'manual'` so the response URL should always equal
+ *      the request URL; a mismatch would mean the request was silently
+ *      redirected to a different host (or that something inside `fetch`
+ *      resolved to a different host than we validated), and we reject it
+ *      as a likely rebind.
+ *
+ * Manual-redirect handling already re-runs the IP block-list on every hop.
  */
 import dns from 'node:dns/promises';
 import net from 'node:net';
@@ -97,6 +124,26 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Pr
     }
     if (addrs.length === 0 || addrs.some((a) => ipIsBlocked(a.address))) return fail('blocked address');
 
+    // (F4) Re-resolve right before fetch. The previous lookup ran in user
+    // space; the actual TCP connect inside `fetch` triggers another,
+    // independent resolver call. If the authoritative DNS flipped between
+    // the two (the classic DNS-rebind TOCTOU), reject. This narrows but
+    // does NOT close the window — see the file header for the pinned-
+    // dispatcher upgrade path.
+    let preFetchAddrs: { address: string }[];
+    try {
+      preFetchAddrs = await dns.lookup(u.hostname, { all: true });
+    } catch {
+      return fail('dns resolution failed');
+    }
+    if (
+      preFetchAddrs.length === 0 ||
+      preFetchAddrs.some((a) => ipIsBlocked(a.address)) ||
+      !sameAddressSet(addrs, preFetchAddrs)
+    ) {
+      return fail('dns rebind detected');
+    }
+
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     let res: Response;
@@ -113,6 +160,18 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Pr
       return fail('fetch failed: ' + (e?.message || String(e)));
     }
     clearTimeout(timer);
+
+    // (F4) Sanity check the post-fetch URL. With `redirect: 'manual'`,
+    // `response.url` should equal the request URL — if the host changed
+    // it means something inside `fetch` followed a redirect we didn't
+    // authorize or resolved to a different host than we validated. Treat
+    // that as a rebind attempt and refuse to read the body.
+    try {
+      const respHost = new URL(res.url).hostname;
+      if (respHost !== u.hostname) return fail('dns rebind detected');
+    } catch {
+      return fail('invalid response url');
+    }
 
     const loc = res.headers.get('location');
     if (res.status >= 300 && res.status < 400 && loc) {
@@ -149,4 +208,18 @@ async function readCapped(res: Response, maxBytes: number): Promise<Buffer | nul
     }
   }
   return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+}
+
+/**
+ * (F4) True if two DNS answer lists describe the same set of addresses.
+ * Round-trip safe: many resolvers return the same set in a different
+ * order between calls. We compare canonicalised IPv6 lower-case + the
+ * raw IPv4 string.
+ */
+function sameAddressSet(a: { address: string }[], b: { address: string }[]): boolean {
+  if (a.length !== b.length) return false;
+  const norm = (s: string) => (net.isIPv6(s) ? s.toLowerCase() : s);
+  const set = new Set(a.map((x) => norm(x.address)));
+  for (const y of b) if (!set.has(norm(y.address))) return false;
+  return true;
 }

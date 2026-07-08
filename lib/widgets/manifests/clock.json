@@ -11,18 +11,27 @@
     "2x2": {
       "t": "col",
       "children": [
-        { "t": "bignum", "value": { "$": "hour" }, "unit": ":{minute}" },
+        { "t": "bignum", "value": { "$": "time" }, "sub": { "$": "tz" } },
         { "t": "text", "value": { "$": "date" } }
       ]
     },
     "4x2": {
       "t": "row",
       "children": [
-        { "t": "bignum", "value": { "$": "hour" }, "unit": ":{minute}", "sub": { "$": "tz" } },
         {
           "t": "col",
+          "gap": 4,
+          "children": [
+            { "t": "bignum", "value": { "$": "time" }, "sub": { "$": "tz" } },
+            { "t": "text", "value": { "$": "date" } }
+          ]
+        },
+        {
+          "t": "col",
+          "gap": 4,
           "children": [
             { "t": "text", "value": { "$": "weekday" }, "size": "title" },
+            { "t": "divider" },
             { "t": "text", "value": { "$": "date" } }
           ]
         }
