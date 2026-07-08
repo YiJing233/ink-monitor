@@ -10,7 +10,7 @@
  * Client-safe.
  */
 
-import { resolveClockSource, resolveCountdownSource } from '../builtin-sources';
+import { resolveClockSource, resolveCountdownSource, resolveCalendarSource, resolveNotesSource } from '../builtin-sources';
 
 // A tiny B&W SVG stands in for a server-dithered photo so the album always
 // renders (no network, no asset pipeline needed for the skeleton).
@@ -70,6 +70,45 @@ export const rssSample = {
   ],
 };
 
+/** Phase 2 non-usage built-in: a fixed iCal text with two future events so
+ *  the gallery /preview card always shows a meaningful "days_until" bignum
+ *  regardless of when the preview is opened. Computed via the same pure
+ *  parser the Source layer uses, anchored at a fixed `now` so the rendered
+ *  number is stable across renders. */
+const CALENDAR_NOW = Date.UTC(2026, 6, 8, 12, 0, 0); // 2026-07-08T12:00:00Z
+const CALENDAR_SAMPLE_ICAL = [
+  'BEGIN:VCALENDAR',
+  'VERSION:2.0',
+  'PRODID:-//ink-monitor//sample//EN',
+  'BEGIN:VEVENT',
+  'UID:sample-1@ink-monitor',
+  'DTSTART:20260715T180000Z',
+  'SUMMARY:Project demo',
+  'END:VEVENT',
+  'BEGIN:VEVENT',
+  'UID:sample-2@ink-monitor',
+  'DTSTART:20260722T070000Z',
+  'SUMMARY:Morning standup',
+  'END:VEVENT',
+  'END:VCALENDAR',
+].join('\r\n');
+
+export const calendarSample = resolveCalendarSource('preview', CALENDAR_SAMPLE_ICAL, CALENDAR_NOW);
+
+/** Phase 2 non-usage built-in: a short checklist for the gallery /preview
+ *  card. Six lines is enough to exercise the `max: 4` and `max: 8` cap in
+ *  the 1x2 / 2x2 layouts without overflowing the e-ink canvas. */
+export const notesSample = resolveNotesSource('preview', {
+  lines: [
+    'Buy milk on the way home',
+    'Ship the calendar + notes widgets',
+    'Read the iCal RFC (just the bits we use)',
+    'Wire the QR write-back editor (Phase 2 TODO)',
+    'Replace the SSR dither with a faster path',
+    'Make a coffee — you earned it',
+  ],
+});
+
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
     name: 'OpenAI',
@@ -105,4 +144,6 @@ export const SAMPLE_DATA: Record<string, unknown> = {
   countdown: countdownSample,
   weather: weatherSample,
   rss: rssSample,
+  calendar: calendarSample,
+  notes: notesSample,
 };

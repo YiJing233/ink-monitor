@@ -2,6 +2,7 @@ import { getDisplayData } from '@/lib/aggregator';
 import { getCurrentUserId } from '@/lib/session';
 import { formatNumber, formatPercent, formatTime, timeUntil } from '@/lib/utils';
 import { SoftRefreshScript } from './soft-refresh';
+import { LiveStreamScript } from './stream-script';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -69,6 +70,7 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
           <meta httpEquiv="refresh" content={String(refreshSeconds)} />
           <DashboardCanvas deviceId={deviceId} items={items} />
           <SoftRefreshScript intervalSec={refreshSeconds} />
+          <LiveStreamScript share={params.share ?? null} />
         </>
       );
     }
@@ -99,6 +101,7 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       <SoftRefreshScript intervalSec={data.refreshSeconds} />
+      <LiveStreamScript share={params.share ?? null} />
     </>
   );
 }

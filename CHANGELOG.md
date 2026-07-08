@@ -7,6 +7,32 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Phase 2 non-usage built-ins: `calendar` + `notes`.** Two more
+  declarative widgets, joining the `clock` / `countdown` / `weather` / `rss`
+  Phase 1 set. `calendar` reads an iCal URL the user pastes into
+  `settings:calendar:icalUrl` (a platform-owned store), the server fetches
+  it through the existing `safeFetch` (egress comes from the manifest's
+  `capabilities.egress` — empty = any public host, matching the rss
+  pattern), and a tiny built-in iCal parser (RFC 5545-lite: handles
+  `VCALENDAR` / `VEVENT`, `SUMMARY`, `DTSTART` in the three date forms the
+  major providers emit, and RFC line folding; not handling RRULE / EXDATE /
+  time zones other than UTC) picks the next upcoming event and surfaces
+  `title` / `next_at` / `days_until` for the `1x1` bignum or `2x2` bignum
+  + text stack. `notes` reads `{ lines: string[] }` from
+  `settings:notes` and renders a `list` node with `max: 4 / 8 / 16` for
+  `1x2 / 2x2 / 4x4`. The `notes` manifest declares
+  `capabilities.writes: true` so the install prompt surfaces the
+  "会写入你的数据" notice — the actual write path (a QR-backed editor +
+  a `/api/owned-state/[store]` PUT endpoint) is on the Phase 2 TODO list.
+  Both ship with sample-data fixtures driven by the same pure helpers the
+  Source layer uses, so the `/preview` card is meaningful without any I/O.
+  New files: `lib/widgets/manifests/calendar.json`,
+  `lib/widgets/manifests/notes.json`,
+  `lib/widgets/__tests__/calendar.test.ts` (10 cases covering the parser,
+  line folding, the empty / past-only / missing-text fallbacks, and the
+  manifest validation), and
+  `lib/widgets/__tests__/notes.test.ts` (6 cases covering the
+  null / array / dirty-input shapes and the install-time write notice).
 - **Widget diagnostics: `GET /api/diagnostics/widgets`.** Owner-only
   diagnostic view of the current user's widget platform state. Returns
   each widget instance with its `manifestId`, `version`, `validate`

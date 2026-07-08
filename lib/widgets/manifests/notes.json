@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "notes",
+  "version": "0.1.0",
+  "name": "Notes",
+  "description": "A short freeform list you edit from the /admin panel. The widget writes to the platform-owned `settings:notes` store via a QR-backed editor (UI is on the roadmap — see CHANGELOG Phase 2 TODO). Renders up to 4 / 8 / 16 lines on 1x2 / 2x2 / 4x4 respectively.",
+  "source": { "kind": "owned", "store": "settings:notes" },
+  "families": ["1x2", "2x2", "4x4"],
+  "layout": {
+    "1x2": { "t": "list", "items": { "$": "lines" }, "max": 4 },
+    "2x2": { "t": "list", "items": { "$": "lines" }, "max": 8 },
+    "4x4": { "t": "list", "items": { "$": "lines" }, "max": 16 }
+  },
+  "capabilities": { "writes": true },
+  "refresh": 60
+}

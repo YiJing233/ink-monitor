@@ -14,6 +14,8 @@ import clock from './manifests/clock.json';
 import countdown from './manifests/countdown.json';
 import weather from './manifests/weather.json';
 import rss from './manifests/rss.json';
+import calendar from './manifests/calendar.json';
+import notes from './manifests/notes.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -25,6 +27,8 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   countdown: validateManifest(countdown),
   weather: validateManifest(weather),
   rss: validateManifest(rss),
+  calendar: validateManifest(calendar),
+  notes: validateManifest(notes),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);

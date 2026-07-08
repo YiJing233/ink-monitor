@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "calendar",
+  "version": "0.1.0",
+  "name": "Calendar",
+  "description": "Days until your next calendar event. The user pastes an iCal URL (Google Calendar / iCloud / Outlook all expose one) into the /admin settings; the server fetches it and parses the VCALENDAR with a tiny built-in iCal parser to surface the next upcoming VEVENT. 1x1 shows days_until + the event title as a sub; 2x2 adds a `next_at` line so the wall-clock date is visible.",
+  "source": { "kind": "owned", "store": "settings:calendar:icalUrl" },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "days_until" }, "unit": "d", "sub": { "$": "title" } },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "days_until" }, "unit": "days" },
+        { "t": "text", "value": { "$": "title" } },
+        { "t": "text", "value": { "$": "next_at" } }
+      ]
+    }
+  },
+  "capabilities": { "writes": false },
+  "refresh": 3600
+}

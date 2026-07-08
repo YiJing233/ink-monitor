@@ -17,7 +17,7 @@ import { decryptForUser } from '../crypto';
 import { getOwnedState, getWidgetSecret, listWidgets, type DashboardRow } from '../db';
 import { safeJson } from '../safe-json';
 import { formatNumber, formatPercent } from '../utils';
-import { resolveClockSource, resolveCountdownSource } from './builtin-sources';
+import { resolveClockSource, resolveCountdownSource, resolveCalendarSource, resolveNotesSource } from './builtin-sources';
 import type { DeviceId } from './devices';
 import { validateManifest, type Manifest } from './ir';
 import { layoutFor, type Dashboard, type Placement } from './placement';
@@ -30,6 +30,12 @@ import { getAlbumStore } from './album-store';
 const CLOCK_STORE = 'settings:clock';
 /** Prefix for per-instance countdown stores. Full key = `settings:countdown:<widgetId>`. */
 const COUNTDOWN_STORE_PREFIX = 'settings:countdown:';
+/** Per-user iCal URL for the `calendar` built-in. The Source layer fetches
+ *  this URL with `safeFetch` and hands the body to the iCal parser. */
+const CALENDAR_STORE = 'settings:calendar:icalUrl';
+/** Per-user freeform lines for the `notes` built-in. Read by the Source layer
+ *  (writes are a Phase 2 TODO — see notes.json manifest description). */
+const NOTES_STORE = 'settings:notes';
 
 export interface ResolveCtx {
   userId: string;
@@ -49,7 +55,7 @@ export async function resolveSource(
     case 'http':
       return resolveHttp(manifest, src, config, ctx);
     case 'owned':
-      return resolveOwnedState(ctx.userId, src.store, config);
+      return resolveOwnedState(ctx.userId, src.store, config, manifest.capabilities?.egress);
     case 'asset':
       return resolveAsset(config);
     case 'album':
@@ -75,6 +81,7 @@ async function resolveOwnedState(
   userId: string,
   store: string,
   config: Record<string, unknown> = {},
+  egress?: string[],
 ): Promise<unknown> {
   const resolvedStore = store.replace(/\{\{(\w+)\}\}/g, (_, k) => String(config[k] ?? ''));
   if (resolvedStore === CLOCK_STORE) {
@@ -88,6 +95,21 @@ async function resolveOwnedState(
       | { target?: number | string; label?: string }
       | null;
     return resolveCountdownSource(userId, settings?.target, settings?.label ?? 'Countdown');
+  }
+  if (resolvedStore === CALENDAR_STORE) {
+    // String value = iCal URL the user pasted. No URL → null (blank tile);
+    // an http error → null. Egress allowlist comes from the manifest's
+    // declared `capabilities.egress`; an empty list means "any public host"
+    // (the user typed the URL, they accept the fetch — see calendar.json
+    // description).
+    const url = (await getOwnedState(userId, resolvedStore)) as string | null;
+    if (!url) return null;
+    const res = await safeFetch(url, { allowlist: egress });
+    if (!res.ok) return null;
+    return resolveCalendarSource(userId, res.bytes.toString('utf8'));
+  }
+  if (resolvedStore === NOTES_STORE) {
+    return resolveNotesSource(userId, await getOwnedState(userId, resolvedStore));
   }
   return (await getOwnedState(userId, resolvedStore)) ?? { items: [] };
 }
