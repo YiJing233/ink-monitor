@@ -1,0 +1,58 @@
+/**
+ * Sample source-data for each built-in manifest. Used by the preview route and
+ * the gallery thumbnails so the renderer can be exercised end-to-end without a
+ * backend. In production these objects come from the Source layer (a builtin
+ * fetcher, a declarative HTTP call, owned state, or the asset pipeline).
+ *
+ * Client-safe.
+ */
+
+// A tiny B&W SVG stands in for a server-dithered photo so the album always
+// renders (no network, no asset pipeline needed for the skeleton).
+const SAMPLE_PHOTO =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+      <rect width="400" height="400" fill="#fff"/>
+      <circle cx="300" cy="90" r="46" fill="none" stroke="#000" stroke-width="4"/>
+      <path d="M0 320 L120 200 L210 290 L300 200 L400 300 L400 400 L0 400 Z" fill="#000"/>
+      <path d="M0 360 L90 300 L170 350 L260 290 L400 360 L400 400 L0 400 Z" fill="none" stroke="#000" stroke-width="3"/>
+    </svg>`,
+  );
+
+const HOURLY_24 = [
+  120, 180, 90, 60, 40, 30, 55, 210, 480, 720, 910, 1040, 980, 1100, 1230, 880, 760, 540, 610, 720, 430, 280, 190, 140,
+];
+
+export const SAMPLE_DATA: Record<string, unknown> = {
+  'api-usage': {
+    name: 'OpenAI',
+    used: 812345,
+    limit: 1000000,
+    used_pct: 81,
+    reset_at: Date.now() + 3 * 3600 * 1000,
+    hourly: HOURLY_24,
+  },
+  'stocks-table': {
+    rows: [
+      { symbol: 'AAPL', name: 'Apple', price: '231.40', change: '+1.20', pct: '+0.52%' },
+      { symbol: 'NVDA', name: 'NVIDIA', price: '1208.88', change: '-14.30', pct: '-1.17%' },
+      { symbol: '00700', name: '腾讯控股', price: '498.20', change: '+6.00', pct: '+1.22%' },
+      { symbol: '600519', name: '贵州茅台', price: '1623.00', change: '-8.10', pct: '-0.50%' },
+    ],
+  },
+  'todo-lark': {
+    add_url: 'https://applink.feishu.cn/client/todo/create',
+    items: [
+      { summary: 'Ship widget IR schema', completed: true, due: 'Mon' },
+      { summary: 'Wire the canvas editor', completed: false, due: 'Tue' },
+      { summary: 'Server-side dithering pipeline', completed: false, due: 'Wed' },
+      { summary: 'Gallery permission prompt', completed: false, due: 'Thu' },
+      { summary: 'Write ARCHITECTURE.md', completed: true, due: 'Mon' },
+    ],
+  },
+  gallery: {
+    current: SAMPLE_PHOTO,
+    caption: '富士山 · 2025 春',
+  },
+};

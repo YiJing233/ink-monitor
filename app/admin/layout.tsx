@@ -6,6 +6,9 @@ import { signOut, useSession } from 'next-auth/react';
 
 const tabs = [
   { href: '/admin', label: 'Overview' },
+  { href: '/admin/canvas', label: 'Canvas' },
+  { href: '/admin/market', label: 'Market' },
+  { href: '/admin/albums', label: 'Albums' },
   { href: '/admin/providers', label: 'Providers' },
   { href: '/admin/stocks', label: 'Stocks' },
   { href: '/admin/settings', label: 'Settings' },

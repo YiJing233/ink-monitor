@@ -5,10 +5,17 @@ import { getDisplayData } from '@/lib/aggregator';
 export const dynamic = 'force-dynamic';
 
 /**
- * Public snapshot — used by the unauthenticated /display page.
- * Reads the session cookie if present, otherwise expects a `u` query param
- * (legacy) or a `share` token. Without any of those, returns an empty
- * snapshot (so the landing page can be rendered publicly).
+ * Auth-gated snapshot (F2/F12/F18). Only two paths resolve a user:
+ *   1. A valid NextAuth session cookie.
+ *   2. A valid `?share=<token>` credential (Kindle / e-ink scan flow).
+ *
+ * The previous implementation also accepted an unauthenticated `?u=<id>`
+ * query param, which let anyone enumerate and read any user's dashboard.
+ * That fallback has been removed: unauthenticated callers now get a 401.
+ *
+ * Note: there is intentionally no `x-ink-user` header path on the server
+ * route either — that header was a client-side preview hint on the page,
+ * and it has also been removed (see app/display/page.tsx).
  */
 export async function GET(req: NextRequest) {
   let userId = await getCurrentUserId();
@@ -16,19 +23,9 @@ export async function GET(req: NextRequest) {
     userId = await getUserIdFromShareToken(req.nextUrl.searchParams.get('share'));
   }
   if (!userId) {
-    userId = req.nextUrl.searchParams.get('u') || null;
-  }
-  if (!userId) {
     return NextResponse.json(
-      {
-        generatedAt: Date.now(),
-        pageTitle: 'Monitor',
-        refreshSeconds: 60,
-        defaultRefreshSeconds: 60,
-        providers: [],
-        stocks: [],
-      },
-      { headers: { 'Cache-Control': 'no-store, must-revalidate' } },
+      { error: 'auth required' },
+      { status: 401, headers: { 'Cache-Control': 'no-store, must-revalidate' } },
     );
   }
   const data = await getDisplayData(userId);

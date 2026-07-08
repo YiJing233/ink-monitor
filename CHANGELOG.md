@@ -7,6 +7,65 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Widget platform (manifest-driven).** Users now author arbitrary e-ink
+  widgets through a validated declarative `WidgetManifest` (JSON), not code —
+  the "Server-Driven UI for e-ink" approach. Closed, versioned IR vocabulary
+  (`lib/widgets/ir.ts`): data (`bignum`, `metric`, `series`, `table`, `list`
+  with `check`, `text`), media (`image`, `qr`), layout (`row`, `col`, `grid`,
+  `divider`). A `Bind` is `{ "$": "path" }` into the resolved source data.
+- **Six-layer architecture** wired end-to-end: L1 source trust tiers
+  (`demo | builtin | http | owned | asset | album`), L2 IR vocabulary, L3
+  binding resolver, L4 shared `WidgetRenderer` + `DashboardCanvas`, L5
+  per-device `Placement` + `resolveFamily` + collision detection, L6
+  `.claude/skills/widget/SKILL.md` (gen-UI authoring loop). See `ARCHITECTURE.md`.
+- **Size families (Apple-widget model).** Each manifest declares its
+  supported families (`1x1`, `2x1`, `1x2`, `2x2`, `4x2`, `4x4`) and a
+  per-family layout variant. Five reference device profiles
+  (`lib/widgets/devices.ts`) — Kindle Paperwhite/Oasis, 小米多看 Pro, Boox
+  Note, 通用横屏 — with native pixel sizes and grids. Cross-device adaptation
+  is in the data model: `Dashboard.layouts` is keyed per device and an
+  `autoReflow` clamps spans when seeding a new device.
+- **Source execution pipeline** (`lib/widgets/source.ts`). Single place
+  provider/stock data crosses into widgets: `demo` → inline; `builtin` →
+  reuses `getDisplayData`; `http` → SSRF-guarded fetch + JSONPath `select`;
+  `owned` → SQLite-stored TODO/notes; `asset` → rewritten through the
+  dithering proxy with HMAC-signed URLs; `album` → wall-clock-bucketed
+  rotation. Provider + stock cards re-expressed as manifests (`api-usage`,
+  `stocks-table`).
+- **SSRF hardening.** `lib/widgets/safe-fetch.ts`: scheme allowlist,
+  DNS-resolved private/loopback/metadata IP blocking, manual redirect
+  re-validation, timeout + byte cap, `capabilities.egress` allowlist per
+  manifest.
+- **Image pipeline.** `lib/widgets/dither.ts` (Atkinson/Floyd-Steinberg +
+  dependency-free PNG encoder) behind `/api/asset/dither` (uses `sharp` to
+  decode, degrades to a redirect if not built). URL signing via
+  `lib/widgets/sign.ts` (HMAC-SHA256 keyed by `ENCRYPTION_KEY`) so the
+  proxy only serves URLs the platform itself minted.
+- **Canvas editor + 1:1 preview.** `/admin/canvas` snap-grid DnD with
+  device switch + live preview iframing `/preview?dashboard=<id>`. Editor
+  enforces no-overlap on the client; `/preview` and `/display` go through
+  the same `WidgetRenderer`, so web preview is a perfect replica of the
+  glass. Persistence: `dashboards` / `widgets` / `widget_secrets` /
+  `owned_state` / `user_manifests` tables + full CRUD.
+- **Market + manifest library.** `/admin/market` installs widgets into a
+  per-user library behind an install-time permission prompt (egress /
+  secrets / writes derived from `capabilities`, `lib/widgets/capabilities.ts`).
+  Share via a portable code, import by paste. Curated remote gallery at
+  `/api/market` (default reads `public/market/registry.json`, override with
+  `MARKET_REGISTRY_URL`); semver comparator `lib/widgets/version.ts` powers
+  the "可更新" one-click update flow.
+- **Hosted album upload (new backends).** `vercel-blob` and `s3` adapters in
+  `lib/widgets/album-store.ts`, pluggable via `ALBUM_STORE=vercel-blob|s3`
+  (or auto-detect on Vercel with `BLOB_READ_WRITE_TOKEN` / `S3_BUCKET` +
+  `S3_REGION`). `@vercel/blob` and `@aws-sdk/client-s3` ship as
+  `optionalDependencies` and are dynamic-imported so they don't force the
+  install. R2/MinIO work via `S3_ENDPOINT` + `forcePathStyle`.
+- **Signed/HMAC gallery auth for `MARKET_REGISTRY_URL`:** opt-in
+  `MARKET_REGISTRY_TOKEN` (Bearer) or `MARKET_REGISTRY_HMAC_KEY` (HMAC over
+  `METHOD\nURL\nTS` with a 5-min replay window). New `signQuery` / `verifyQuery`
+  / `isFreshTimestamp` helpers in `lib/widgets/sign.ts`; client-safe
+  `MARKET_AUTH_REQUIRED` mode list in `lib/widgets/registry-meta.ts` so the
+  admin Market UI can show a "🔒 private registry" indicator.
 - Per-user encryption: `PBKDF2(ENCRYPTION_KEY, user_id, 100k, sha256)` →
   AES-256-GCM for API key storage.
 - Multi-tenant data model with `user_id` scoping and FK-cascaded deletes.
@@ -28,6 +87,23 @@ All notable changes to Ink Monitor are documented here. The format follows
 - Vercel one-click deploy button.
 
 ### Changed
+- `/display` renders the user's saved dashboard through the shared
+  `DashboardCanvas` (opt-in; legacy provider/stock view is the fallback when
+  no dashboard exists).
+- Soft refresh generalized: `app/display/soft-refresh.tsx` works for both
+  legacy provider/stock pages (via `data-pid`/`data-symbol`) and the
+  dashboard (via `data-w-inst`); e-ink UAs fall back to
+  `<meta http-equiv="refresh">`.
+- Provider fetch dispatch centralised: `fetchUsageForUser` is now the
+  single fetch entry in `lib/providers/index.ts`; the duplicated
+  dispatch in `lib/aggregator.ts` is gone. The fix routes
+  groq/mistral/deepseek/moonshot/zhipu/openrouter/ollama to the `openai`
+  fetcher (registry `REGISTRY`) instead of `custom`.
+- Per-device refresh overrides: `dashboards.refresh_overrides_json` lets
+  users pin a max-refresh-per-device (a cap, not a floor).
+- pnpm workspace config: native builds (better-sqlite3 / esbuild / sharp)
+  are skipped — they ship prebuilt binaries, the source rebuild needs
+  Xcode CLT, which isn't always present.
 - `/display` is now server-rendered, B&W-only, with an opt-in soft refresh
   script that detects e-ink user agents and no-ops (so the existing
   `<meta http-equiv="refresh">` keeps doing its full-screen redraw on
@@ -38,6 +114,33 @@ All notable changes to Ink Monitor are documented here. The format follows
   the display page picks the minimum of all rows as its meta-refresh.
 
 ### Fixed
+- **Path traversal in `/api/albums/[name]` and `[fileId]`.** URL segments
+  were passed directly to `path.join`, so `name="../../etc"` resolved
+  outside the user's album directory. Now: Zod-segment whitelist on the
+  route + `assertSafeAlbumPath()` with `path.resolve` prefix assertion
+  inside `lib/widgets/album-store.ts`. `removeFile` only deletes items
+  that actually exist in `list()`. Covered by 10 new security tests.
+- **`?u=<userId>` and `x-ink-user` auth bypass.** `/display` and
+  `/api/snapshot` no longer honour these legacy fallbacks; only session
+  cookie or `?share=<token>` is accepted. Unauthenticated reads now 401 /
+  render an "auth required" page.
+- **soft-refresh selector always produced `[data-="…"]`.** The previous
+  `sel.split('').slice(0,6).join('')` returned `[data-` for every selector,
+  so the patcher never matched `data-w-inst` / `data-pid` /
+  `data-symbol`. Refactored to per-selector key groups; covered by 5 new
+  tests.
+- **`PUT /api/dashboards/[id]` non-atomic.** Now wraps
+  `insertWidget × N + updateDashboard + gcWidgets` in a single
+  `withTx()` (better-sqlite3 transaction). `gcWidgets` is currently
+  user-scoped (intentional, with TODO pointer in the route for
+  per-dashboard narrowing).
+- **`http` source `body` was dropped silently.** Manifests can now declare
+  `body`; values are templated with the same `{{VAR}}` substitution as
+  `url` (config + secrets) and forwarded to `safeFetch`.
+- **Prod `ENCRYPTION_KEY` was a silent fallback.** Now
+  `lib/widgets/sign.ts` throws at module load if `NODE_ENV=production`
+  and `ENCRYPTION_KEY` is unset (dev mode still falls back to
+  `'dev-insecure-key'`).
 - Tencent K-line field index off-by-one (change at parts[31], change% at
   parts[32], timestamp at parts[30] for US, HK, and CN).
 - Yahoo Finance geo-block from server IPs: switched primary stock data

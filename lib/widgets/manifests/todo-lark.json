@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "todo-lark",
+  "name": "TODO",
+  "description": "Read-only task list bound to Feishu/Lark Tasks. The e-ink glass is read-only; check items off in /admin, via the skill, or on your phone by scanning the QR (4x2).",
+  "source": {
+    "kind": "http",
+    "url": "https://open.feishu.cn/open-apis/task/v2/tasks",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "LARK_TENANT_TOKEN" },
+    "select": { "items": "data.items", "add_url": "data.add_url" }
+  },
+  "families": ["2x1", "2x2", "4x2"],
+  "layout": {
+    "2x1": { "t": "list", "items": { "$": "items" }, "primary": "summary", "check": "completed", "max": 3 },
+    "2x2": { "t": "list", "items": { "$": "items" }, "primary": "summary", "secondary": "due", "check": "completed", "max": 7 },
+    "4x2": {
+      "t": "row",
+      "children": [
+        { "t": "list", "items": { "$": "items" }, "primary": "summary", "secondary": "due", "check": "completed", "max": 8 },
+        { "t": "qr", "value": { "$": "add_url" }, "caption": "扫码加待办" }
+      ]
+    }
+  },
+  "capabilities": { "egress": ["open.feishu.cn"], "secrets": ["LARK_TENANT_TOKEN"], "writes": false },
+  "refresh": 600
+}

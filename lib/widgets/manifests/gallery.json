@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "gallery",
+  "name": "Album",
+  "description": "Rotating photo album. Photos are server-dithered to 1-bit (Atkinson) so they look sharp on e-ink instead of muddy grayscale.",
+  "source": { "kind": "album", "album": "default", "refresh_seconds": 1800 },
+  "families": ["1x1", "2x2", "4x4"],
+  "layout": {
+    "1x1": { "t": "image", "src": { "$": "current" }, "fit": "cover", "dither": "atkinson" },
+    "2x2": { "t": "image", "src": { "$": "current" }, "fit": "cover", "dither": "atkinson" },
+    "4x4": {
+      "t": "col",
+      "children": [
+        { "t": "image", "src": { "$": "current" }, "fit": "cover", "dither": "atkinson" },
+        { "t": "text", "value": { "$": "caption" }, "size": "caption" }
+      ]
+    }
+  },
+  "capabilities": { "writes": false },
+  "refresh": 1800
+}

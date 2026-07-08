@@ -21,6 +21,22 @@ export function getDb(): Database.Database {
   return db;
 }
 
+/**
+ * Run `fn` inside a SQLite transaction. better-sqlite3 transactions MUST be
+ * synchronous, so `fn` is expected to run synchronously; if it throws, the
+ * transaction rolls back.
+ *
+ * Usage:
+ *   withTx(() => {
+ *     insertWidget({ ... });
+ *     updateDashboard(userId, id, { ... });
+ *   });
+ */
+export function withTx<T>(fn: () => T): T {
+  const tx = getDb().transaction(fn);
+  return tx();
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -116,6 +132,60 @@ function initSchema(db: Database.Database) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_audit_user_time ON audit_log(user_id, created_at DESC);
+
+    -- Widget platform ---------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS dashboards (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      base_device TEXT NOT NULL DEFAULT 'kindle-pw',
+      layouts_json TEXT NOT NULL DEFAULT '{}',  -- { deviceId: Placement[] }
+      refresh_overrides_json TEXT NOT NULL DEFAULT '{}', -- { deviceId: refreshSeconds }
+      display_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS widgets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      manifest_json TEXT NOT NULL,       -- full validated WidgetManifest
+      config_json TEXT NOT NULL DEFAULT '{}',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS widget_secrets (
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,                 -- e.g. OWM_KEY (the manifest declares it)
+      value_encrypted TEXT NOT NULL,      -- AES-256-GCM, per-user key
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, name),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS owned_state (
+      user_id TEXT NOT NULL,
+      store TEXT NOT NULL,                -- e.g. todo:groceries
+      value_json TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, store),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_manifests (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      manifest_id TEXT NOT NULL,            -- manifest.id (palette key)
+      manifest_json TEXT NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'custom', -- 'custom' | 'installed'
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE (user_id, manifest_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
   `);
 
   // Unique index on (user_id, symbol) for stocks
@@ -124,6 +194,9 @@ function initSchema(db: Database.Database) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_stocks_user ON stocks(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_webhooks_user ON webhooks(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id, delivered_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_dashboards_user ON dashboards(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_widgets_user ON widgets(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_user_manifests_user ON user_manifests(user_id)');
 }
 
 // --- Users ---
@@ -353,4 +426,183 @@ export function setCache(userId: string, key: string, value: string): void {
 
 export function clearCache(userId: string, key: string): void {
   getDb().prepare('DELETE FROM fetch_cache WHERE user_id = ? AND key = ?').run(userId, key);
+}
+
+// --- Dashboards (user-scoped) ---
+export interface DashboardRow {
+  id: string;
+  user_id: string;
+  name: string;
+  base_device: string;
+  layouts_json: string; // JSON: { [deviceId]: Placement[] }
+  refresh_overrides_json: string; // JSON: { [deviceId]: refreshSeconds }
+  display_order: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export function listDashboards(userId: string): DashboardRow[] {
+  return getDb()
+    .prepare('SELECT * FROM dashboards WHERE user_id = ? ORDER BY display_order ASC, created_at ASC')
+    .all(userId) as DashboardRow[];
+}
+
+export function getDashboard(userId: string, id: string): DashboardRow | undefined {
+  return getDb().prepare('SELECT * FROM dashboards WHERE user_id = ? AND id = ?').get(userId, id) as DashboardRow | undefined;
+}
+
+export function insertDashboard(d: Omit<DashboardRow, 'created_at' | 'updated_at'>): void {
+  const now = Date.now();
+  getDb()
+    .prepare(
+      `INSERT INTO dashboards (id, user_id, name, base_device, layouts_json, refresh_overrides_json, display_order, created_at, updated_at)
+       VALUES (@id, @user_id, @name, @base_device, @layouts_json, @refresh_overrides_json, @display_order, @created_at, @updated_at)`,
+    )
+    .run({ ...d, created_at: now, updated_at: now });
+}
+
+export function updateDashboard(userId: string, id: string, patch: Partial<DashboardRow>): void {
+  const existing = getDashboard(userId, id);
+  if (!existing) throw new Error('Dashboard not found');
+  const merged = { ...existing, ...patch, updated_at: Date.now() };
+  getDb()
+    .prepare(
+      `UPDATE dashboards SET name=@name, base_device=@base_device, layouts_json=@layouts_json,
+        refresh_overrides_json=@refresh_overrides_json,
+        display_order=@display_order, updated_at=@updated_at WHERE user_id=@user_id AND id=@id`,
+    )
+    .run(merged);
+}
+
+export function deleteDashboard(userId: string, id: string): void {
+  getDb().prepare('DELETE FROM dashboards WHERE user_id = ? AND id = ?').run(userId, id);
+}
+
+// --- Widget instances (user-scoped) ---
+export interface WidgetRow {
+  id: string;
+  user_id: string;
+  manifest_json: string; // full validated manifest
+  config_json: string; // per-instance config (city, providerId, …)
+  created_at: number;
+  updated_at: number;
+}
+
+export function listWidgets(userId: string): WidgetRow[] {
+  return getDb().prepare('SELECT * FROM widgets WHERE user_id = ? ORDER BY created_at ASC').all(userId) as WidgetRow[];
+}
+
+export function getWidget(userId: string, id: string): WidgetRow | undefined {
+  return getDb().prepare('SELECT * FROM widgets WHERE user_id = ? AND id = ?').get(userId, id) as WidgetRow | undefined;
+}
+
+export function insertWidget(w: Omit<WidgetRow, 'created_at' | 'updated_at'>): void {
+  const now = Date.now();
+  getDb()
+    .prepare(
+      `INSERT INTO widgets (id, user_id, manifest_json, config_json, created_at, updated_at)
+       VALUES (@id, @user_id, @manifest_json, @config_json, @created_at, @updated_at)`,
+    )
+    .run({ ...w, created_at: now, updated_at: now });
+}
+
+export function updateWidget(userId: string, id: string, patch: Partial<WidgetRow>): void {
+  const existing = getWidget(userId, id);
+  if (!existing) throw new Error('Widget not found');
+  const merged = { ...existing, ...patch, updated_at: Date.now() };
+  getDb()
+    .prepare('UPDATE widgets SET manifest_json=@manifest_json, config_json=@config_json, updated_at=@updated_at WHERE user_id=@user_id AND id=@id')
+    .run(merged);
+}
+
+export function deleteWidget(userId: string, id: string): void {
+  getDb().prepare('DELETE FROM widgets WHERE user_id = ? AND id = ?').run(userId, id);
+}
+
+// --- Widget secrets (user-scoped; the caller encrypts via lib/crypto) ---
+export function setWidgetSecret(userId: string, name: string, valueEncrypted: string): void {
+  getDb()
+    .prepare(
+      'INSERT INTO widget_secrets (user_id, name, value_encrypted, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, name) DO UPDATE SET value_encrypted=excluded.value_encrypted',
+    )
+    .run(userId, name, valueEncrypted, Date.now());
+}
+
+export function getWidgetSecret(userId: string, name: string): string | null {
+  const row = getDb()
+    .prepare('SELECT value_encrypted FROM widget_secrets WHERE user_id = ? AND name = ?')
+    .get(userId, name) as { value_encrypted: string } | undefined;
+  return row?.value_encrypted ?? null;
+}
+
+export function listWidgetSecretNames(userId: string): string[] {
+  const rows = getDb().prepare('SELECT name FROM widget_secrets WHERE user_id = ? ORDER BY name').all(userId) as { name: string }[];
+  return rows.map((r) => r.name);
+}
+
+export function deleteWidgetSecret(userId: string, name: string): void {
+  getDb().prepare('DELETE FROM widget_secrets WHERE user_id = ? AND name = ?').run(userId, name);
+}
+
+// --- Owned widget state (TODO lists, notes, counters) ---
+export function getOwnedState(userId: string, store: string): unknown {
+  const row = getDb()
+    .prepare('SELECT value_json FROM owned_state WHERE user_id = ? AND store = ?')
+    .get(userId, store) as { value_json: string } | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value_json);
+  } catch {
+    return null;
+  }
+}
+
+export function setOwnedState(userId: string, store: string, value: unknown): void {
+  getDb()
+    .prepare(
+      'INSERT INTO owned_state (user_id, store, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, store) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at',
+    )
+    .run(userId, store, JSON.stringify(value), Date.now());
+}
+
+// --- User manifest library (palette + installed-from-market) ---
+export interface UserManifestRow {
+  id: string;
+  user_id: string;
+  manifest_id: string;
+  manifest_json: string;
+  origin: string; // 'custom' | 'installed'
+  created_at: number;
+  updated_at: number;
+}
+
+export function listUserManifests(userId: string): UserManifestRow[] {
+  return getDb()
+    .prepare('SELECT * FROM user_manifests WHERE user_id = ? ORDER BY updated_at DESC')
+    .all(userId) as UserManifestRow[];
+}
+
+export function getUserManifest(userId: string, manifestId: string): UserManifestRow | undefined {
+  return getDb()
+    .prepare('SELECT * FROM user_manifests WHERE user_id = ? AND manifest_id = ?')
+    .get(userId, manifestId) as UserManifestRow | undefined;
+}
+
+export function upsertUserManifest(userId: string, manifestId: string, manifestJson: string, origin: string): void {
+  const now = Date.now();
+  const existing = getUserManifest(userId, manifestId);
+  if (existing) {
+    getDb()
+      .prepare('UPDATE user_manifests SET manifest_json=?, origin=?, updated_at=? WHERE user_id=? AND manifest_id=?')
+      .run(manifestJson, origin, now, userId, manifestId);
+    return;
+  }
+  const id = 'um_' + now.toString(36) + Math.random().toString(36).slice(2, 8);
+  getDb()
+    .prepare('INSERT INTO user_manifests (id, user_id, manifest_id, manifest_json, origin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(id, userId, manifestId, manifestJson, origin, now, now);
+}
+
+export function deleteUserManifest(userId: string, manifestId: string): void {
+  getDb().prepare('DELETE FROM user_manifests WHERE user_id = ? AND manifest_id = ?').run(userId, manifestId);
 }

@@ -1,8 +1,7 @@
 import 'server-only';
 import { listProviders, listStocks, getAllSettings, getCache, setCache } from './db';
-import { fetchUsage } from './providers';
+import { fetchUsageForUser } from './providers';
 import { getQuote } from './stocks';
-import { decryptForUser } from './crypto';
 import { PROVIDER_LABELS } from './providers/labels';
 
 export interface DisplayData {
@@ -176,49 +175,11 @@ export async function getDisplayData(userId: string): Promise<DisplayData> {
   };
 }
 
-async function fetchUsageForUser(p: any, userId: string) {
-  if (p.type === 'demo') {
-    const { fetchUsage } = await import('./providers');
-    return fetchUsage({ ...p, api_key_encrypted: '_demo_' });
-  }
-  // Decrypt with the user's key
-  const { fetchUsage } = await import('./providers');
-  const decrypted = {
-    ...p,
-    api_key_encrypted: (() => {
-      try {
-        return decryptForUser(userId, p.api_key_encrypted);
-      } catch {
-        return '';
-      }
-    })(),
-  };
-  // fetchUsage decodes internally; we need a different path
-  return _fetchWithKey(p, decrypted.api_key_encrypted);
-}
-
-async function _fetchWithKey(p: any, apiKey: string) {
-  // Each provider has its own fetcher module. We import the ones we
-  // need here so the registry in lib/providers/index.ts stays the
-  // single source of truth for which provider maps to which fetcher.
-  const { openaiProvider } = await import('./providers/openai');
-  const { anthropicProvider } = await import('./providers/anthropic');
-  const { customProvider } = await import('./providers/custom');
-  const { demoProvider } = await import('./providers/demo');
-  const { minimaxProvider } = await import('./providers/minimax');
-  const fetcher =
-    p.type === 'openai' ? openaiProvider
-    : p.type === 'anthropic' ? anthropicProvider
-    : p.type === 'demo' ? demoProvider
-    : p.type === 'minimax' ? minimaxProvider
-    : customProvider;
-  return fetcher.fetch(p, apiKey);
-}
-
 function clampRefresh(v: number | null | undefined, fallback: number): number {
   if (v == null || !Number.isFinite(v)) return fallback;
   return Math.max(15, Math.min(DEFAULT_REFRESH_MAX, Math.floor(v)));
 }
+
 
 export function sanitizeProvider(p: any) {
   return {

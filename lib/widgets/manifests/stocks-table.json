@@ -1,0 +1,41 @@
+{
+  "v": 1,
+  "id": "stocks-table",
+  "name": "Stocks",
+  "description": "Watchlist table re-expressed as a widget. Binds to the built-in stocks source; columns grow with size.",
+  "source": { "kind": "builtin", "ref": "stocks" },
+  "families": ["2x2", "4x2", "4x4"],
+  "layout": {
+    "2x2": {
+      "t": "table",
+      "columns": [
+        { "key": "symbol", "label": "Sym", "mono": true },
+        { "key": "price", "label": "Price", "align": "right", "mono": true },
+        { "key": "pct", "label": "%", "align": "right", "mono": true }
+      ],
+      "rows": { "$": "rows" }
+    },
+    "4x2": {
+      "t": "table",
+      "columns": [
+        { "key": "symbol", "label": "Symbol", "mono": true },
+        { "key": "name", "label": "Name" },
+        { "key": "price", "label": "Price", "align": "right", "mono": true },
+        { "key": "pct", "label": "%", "align": "right", "mono": true }
+      ],
+      "rows": { "$": "rows" }
+    },
+    "4x4": {
+      "t": "table",
+      "columns": [
+        { "key": "symbol", "label": "Symbol", "mono": true },
+        { "key": "name", "label": "Name" },
+        { "key": "price", "label": "Price", "align": "right", "mono": true },
+        { "key": "change", "label": "Chg", "align": "right", "mono": true },
+        { "key": "pct", "label": "%", "align": "right", "mono": true }
+      ],
+      "rows": { "$": "rows" }
+    }
+  },
+  "refresh": 60
+}

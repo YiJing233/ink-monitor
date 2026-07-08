@@ -20,5 +20,13 @@ export const config = {
     '/api/stocks/:path*',
     '/api/settings/:path*',
     '/api/demo',
+    // Widget platform (the public /api/asset/dither proxy is intentionally omitted)
+    '/api/dashboards/:path*',
+    '/api/widgets/:path*',
+    '/api/widget-secrets/:path*',
+    '/api/manifests/:path*',
+    '/api/albums/:path*',
+    '/api/album-asset/:path*',
+    '/api/market',
   ],
 };

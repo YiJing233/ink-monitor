@@ -1,0 +1,74 @@
+{
+  "items": [
+    {
+      "category": "weather",
+      "author": "ink-monitor",
+      "icon": "🌤",
+      "manifest": {
+        "v": 1,
+        "id": "london-weather",
+        "name": "London Weather",
+        "description": "OpenWeatherMap current weather for a single city. Add a secret named OWM_KEY and set the city in widget config.",
+        "version": "0.1.0",
+        "source": {
+          "kind": "http",
+          "url": "https://api.openweathermap.org/data/2.5/forecast?q={{city}}&appid={{OWM_KEY}}&units=metric",
+          "auth": { "type": "none" },
+          "select": {
+            "temp": "list[0].main.temp",
+            "cond": "list[0].weather[0].main",
+            "hourly": "list[*].main.temp"
+          }
+        },
+        "families": ["1x1", "2x2"],
+        "layout": {
+          "1x1": { "t": "bignum", "value": { "$": "temp" }, "unit": "°C", "sub": { "$": "cond" } },
+          "2x2": {
+            "t": "col",
+            "children": [
+              { "t": "bignum", "value": { "$": "temp" }, "unit": "°C", "sub": { "$": "cond" } },
+              { "t": "series", "kind": "bar", "data": { "$": "hourly" }, "window": "24h" }
+            ]
+          }
+        },
+        "capabilities": { "egress": ["api.openweathermap.org"], "secrets": ["OWM_KEY"] },
+        "refresh": 1800
+      }
+    },
+    {
+      "category": "dev",
+      "author": "ink-monitor",
+      "icon": "🐙",
+      "manifest": {
+        "v": 1,
+        "id": "github-prs",
+        "name": "GitHub Open PRs",
+        "description": "Open pull requests for a repo. Add a GITHUB_TOKEN secret and set owner/repo in widget config.",
+        "version": "0.1.0",
+        "source": {
+          "kind": "http",
+          "url": "https://api.github.com/repos/{{owner}}/{{repo}}/pulls?state=open&per_page=20",
+          "auth": { "type": "bearer", "secret": "GITHUB_TOKEN" },
+          "select": {
+            "count": "length",
+            "items": "[@]",
+            "titles": "[*].title"
+          }
+        },
+        "families": ["1x1", "2x2"],
+        "layout": {
+          "1x1": { "t": "bignum", "value": { "$": "count" }, "sub": "open PRs" },
+          "2x2": {
+            "t": "col",
+            "children": [
+              { "t": "bignum", "value": { "$": "count" }, "sub": "open PRs" },
+              { "t": "list", "items": { "$": "items" }, "primary": "title", "max": 6 }
+            ]
+          }
+        },
+        "capabilities": { "egress": ["api.github.com"], "secrets": ["GITHUB_TOKEN"] },
+        "refresh": 600
+      }
+    }
+  ]
+}

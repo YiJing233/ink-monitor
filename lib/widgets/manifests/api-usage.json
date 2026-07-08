@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "api-usage",
+  "name": "API Usage",
+  "description": "Token-plan usage with reset countdown and 24h history. 1x1 shows just the percentage; 2x2 adds the hourly chart.",
+  "source": { "kind": "builtin", "ref": "provider" },
+  "families": ["1x1", "2x1", "2x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "used_pct" }, "unit": "%", "sub": { "$": "name" } },
+    "2x1": { "t": "metric", "label": "Tokens", "value": { "$": "used" }, "max": { "$": "limit" }, "unit": "tok", "reset": { "$": "reset_at" }, "window": "24h" },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "metric", "label": "Tokens", "value": { "$": "used" }, "max": { "$": "limit" }, "unit": "tok", "reset": { "$": "reset_at" }, "window": "24h" },
+        { "t": "series", "kind": "bar", "data": { "$": "hourly" }, "window": "24h", "unit": "tok" }
+      ]
+    }
+  },
+  "capabilities": { "egress": ["api.openai.com"], "secrets": ["OPENAI_API_KEY"] },
+  "refresh": 300
+}

@@ -2,8 +2,8 @@ import { cache } from 'react';
 import { getDisplayData } from '@/lib/aggregator';
 import { getCurrentUserId } from '@/lib/session';
 import { formatNumber, formatPercent, formatTime, timeUntil } from '@/lib/utils';
+import { SoftRefreshScript } from './soft-refresh';
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,24 +24,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// F2/F12/F18: this route is auth-gated. Only two legitimate paths resolve a
+// userId: (1) a real NextAuth session, (2) a valid `?share=<token>`. The
+// legacy `?u=` query param and the `x-ink-user` header used to be honored as
+// fallbacks, which let anyone view any user's dashboard. Both fallbacks have
+// been removed; see `app/api/snapshot/route.ts` for the matching server-side
+// gate. The `?u=` query param is still accepted by the type signature for
+// backward-compat in canonical self-links, but it is no longer read.
 export default async function DisplayPage({ searchParams }: { searchParams: Promise<{ u?: string; share?: string }> }) {
   let userId = await getCurrentUserId();
   const params = await searchParams;
   if (!userId && params.share) {
     const { getUserIdFromShareToken } = await import('@/lib/session');
     userId = await getUserIdFromShareToken(params.share);
-  }
-  if (!userId) userId = params.u || null;
-
-  // Fallback: try to read user id from a custom header (used by server-side preview)
-  if (!userId) {
-    try {
-      const h = await headers();
-      const fromHdr = h.get('x-ink-user');
-      if (fromHdr) userId = fromHdr;
-    } catch {
-      // not available in some contexts
-    }
   }
 
   const data = userId ? await getCachedData(userId) : null;
@@ -51,18 +46,40 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
       <div className="eink" style={{ padding: 16 }}>
         <h1 className="eink-title">Monitor</h1>
         <div className="eink-section">
-          <strong>Sign in to set up your dashboard.</strong> Open <a href="/">/</a> on a desktop browser.
+          <strong>Sign in or open a share link.</strong> Visit <a href="/">/</a> on a desktop browser, or scan the QR code shared from your dashboard.
         </div>
       </div>
     );
   }
 
-  // Canonical URL: prefer the share token, fall back to the legacy ?u=.
-  const canonicalQs = params.share
-    ? `?share=${encodeURIComponent(params.share)}`
-    : userId
-    ? `?u=${encodeURIComponent(userId)}`
-    : '';
+  // Widget dashboard mode (opt-in): if the user configured a dashboard, render
+  // it through the shared canvas instead of the legacy provider/stock sections.
+  // Both paths use the same WidgetRenderer, so /preview stays a 1:1 replica.
+  if (userId) {
+    const { listDashboards } = await import('@/lib/db');
+    const dashboards = listDashboards(userId);
+    if (dashboards.length > 0) {
+      const { resolveDashboard } = await import('@/lib/widgets/source');
+      const { DashboardCanvas } = await import('@/lib/widgets/render/DashboardCanvas');
+      const { SoftRefreshScript } = await import('./soft-refresh');
+      const { deviceId, items, refreshOverrideSec } = await resolveDashboard(userId, dashboards[0]);
+      const cands = items.map((i) => i.manifest.refresh).filter((n): n is number => typeof n === 'number' && n > 0);
+      const minFromManifests = cands.length ? Math.min(...cands) : 300;
+      const refreshSeconds = refreshOverrideSec ? Math.max(15, Math.min(minFromManifests, refreshOverrideSec)) : Math.max(15, minFromManifests);
+      return (
+        <>
+          <meta httpEquiv="refresh" content={String(refreshSeconds)} />
+          <DashboardCanvas deviceId={deviceId} items={items} />
+          <SoftRefreshScript intervalSec={refreshSeconds} />
+        </>
+      );
+    }
+  }
+
+  // Canonical self-link: only the share token is portable across devices.
+  // The legacy `?u=` is no longer honored (auth bypass), so we no longer
+  // emit it on self-refresh links — authenticated users get a plain link.
+  const canonicalQs = params.share ? `?share=${encodeURIComponent(params.share)}` : '';
 
   return (
     <>
@@ -85,131 +102,6 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
       </div>
       <SoftRefreshScript intervalSec={data.refreshSeconds} />
     </>
-  );
-}
-
-/**
- * Soft-refresh script: on capable browsers, fetch /api/snapshot and patch
- * the DOM in place instead of triggering a full reload. On e-ink browsers
- * (Kindle experimental, Xiaomi reader) the script no-ops so the existing
- * <meta http-equiv="refresh"> does its job — full-screen reflash is what
- * e-ink wants.
- */
-function SoftRefreshScript({ intervalSec }: { intervalSec: number }) {
-  // Embed the user id from a query string or cookie-derived value at SSR
-  // time so the script can call the right endpoint without a re-render.
-  return (
-    <script
-      // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{
-        __html: `(function(){
-  try {
-    var ua = navigator.userAgent || '';
-    var isEink = /Kindle|Silk\\/|Xiaomi|MiReader|EBRD|INet|Boox/i.test(ua);
-    if (isEink) return;
-    if (!window.fetch || !window.IntersectionObserver) return;
-    var meta = document.querySelector('meta[http-equiv="refresh"]');
-    var interval = ${intervalSec * 1000};
-    function pad(n){ return n<10?'0'+n:n; }
-    function fmtTime(t){ var d=new Date(t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
-    function fmtNum(n, dec){ if(n==null||!isFinite(n)) return '—'; return n.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
-    function fmtPct(n){ if(n==null||!isFinite(n)) return '—'; var s=n>=0?'+':''; return s+n.toFixed(2)+'%'; }
-    function sign(n){ return n>0?'+':''; }
-    function txtOf(el){ return el ? el.textContent : ''; }
-    function setTxt(el, t){ if(el) el.textContent = t; }
-    function $(sel, root){ return (root||document).querySelector(sel); }
-    function $$(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
-    var REFRESH_URL = location.pathname + (location.search||'');
-    async function tick(){
-      try {
-        var r = await fetch(REFRESH_URL, { cache: 'no-store', headers: { 'X-Soft-Refresh': '1' } });
-        if (!r.ok) { location.reload(); return; }
-        var html = await r.text();
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var newRoot = doc.querySelector('[data-display-root]');
-        var oldRoot = document.querySelector('[data-display-root]');
-        if (!newRoot || !oldRoot) { location.reload(); return; }
-        patch(oldRoot, newRoot);
-      } catch (e) {
-        location.reload();
-      }
-    }
-    function patch(oldRoot, newRoot){
-      // Header
-      var oldUpdated = oldRoot.querySelector('[data-updated-at]');
-      var newUpdated = newRoot.querySelector('[data-updated-at]');
-      if (oldUpdated && newUpdated) oldUpdated.textContent = newUpdated.textContent;
-      // Provider cards
-      $$('[data-pid]', newRoot).forEach(function(newCard){
-        var id = newCard.getAttribute('data-pid');
-        var oldCard = oldRoot.querySelector('[data-pid="'+id+'"]');
-        if (!oldCard) return;
-        // Status badge
-        var newBadge = newCard.querySelector('[data-status]');
-        var oldBadge = oldCard.querySelector('[data-status]');
-        if (newBadge && oldBadge) {
-          oldBadge.textContent = newBadge.textContent;
-          oldBadge.className = newBadge.className;
-        }
-        // Fetched-at line
-        var newFetched = newCard.querySelector('[data-fetched-at]');
-        var oldFetched = oldCard.querySelector('[data-fetched-at]');
-        if (newFetched && oldFetched) oldFetched.textContent = newFetched.textContent;
-        // Error text
-        var newErr = newCard.querySelector('[data-err]');
-        var oldErr = oldCard.querySelector('[data-err]');
-        if (newErr && oldErr) {
-          if (newErr.textContent.trim()) {
-            oldErr.textContent = newErr.textContent;
-            oldErr.style.display = '';
-          } else {
-            oldErr.textContent = '';
-            oldErr.style.display = 'none';
-          }
-        }
-        // Metrics — match by data-metric-label
-        $$('[data-metric-label]', newCard).forEach(function(newMetric){
-          var label = newMetric.getAttribute('data-metric-label');
-          var oldMetric = oldCard.querySelector('[data-metric-label="'+label+'"]');
-          if (!oldMetric) return;
-          var newNum = newMetric.querySelector('[data-metric-num]');
-          var oldNum = oldMetric.querySelector('[data-metric-num]');
-          if (newNum && oldNum) oldNum.textContent = newNum.textContent;
-          var newPct = newMetric.querySelector('[data-metric-pct]');
-          var oldPct = oldMetric.querySelector('[data-metric-pct]');
-          if (newPct && oldPct) oldPct.textContent = newPct.textContent;
-          var newFill = newMetric.querySelector('[data-metric-fill]');
-          var oldFill = oldMetric.querySelector('[data-metric-fill]');
-          if (newFill && oldFill) {
-            oldFill.style.width = newFill.style.width;
-            oldFill.style.display = newFill.style.display;
-          }
-          var newReset = newMetric.querySelector('[data-metric-reset]');
-          var oldReset = oldMetric.querySelector('[data-metric-reset]');
-          if (newReset && oldReset) oldReset.textContent = newReset.textContent;
-        });
-      });
-      // Stock rows
-      $$('[data-symbol]', newRoot).forEach(function(newRow){
-        var sym = newRow.getAttribute('data-symbol');
-        var oldRow = oldRoot.querySelector('[data-symbol="'+sym+'"]');
-        if (!oldRow) return;
-        ['price','change','pct','name'].forEach(function(field){
-          var n = newRow.querySelector('[data-cell="'+field+'"]');
-          var o = oldRow.querySelector('[data-cell="'+field+'"]');
-          if (n && o) {
-            o.textContent = n.textContent;
-            o.className = n.className;
-          }
-        });
-      });
-    }
-    setTimeout(tick, interval);
-    setInterval(tick, interval);
-  } catch(e) { /* swallow — meta refresh is the fallback */ }
-})();`,
-      }}
-    />
   );
 }
 
