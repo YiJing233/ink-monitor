@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "countdown",
+  "version": "0.1.0",
+  "name": "Countdown",
+  "description": "Days/hours until a stored target date (set in /admin). Each instance keeps its own target store; default stores 30 days out for preview.",
+  "source": { "kind": "owned", "store": "settings:countdown:{{instanceId}}" },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "days" }, "unit": "days", "sub": { "$": "label" } },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "days" }, "unit": "天" },
+        { "t": "text", "value": { "$": "label" } }
+      ]
+    }
+  },
+  "capabilities": { "writes": false },
+  "refresh": 600
+}
