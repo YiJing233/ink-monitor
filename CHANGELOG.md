@@ -7,6 +7,17 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Phase 1 non-usage built-ins: `clock` + `countdown`.** Two new manifests
+  in `lib/widgets/manifests/` registered alongside the existing Phase 0
+  references. `clock` reads a per-user time zone from `settings:clock`
+  (owned-state), 24-hour wall time rendered via `bignum`+`text` layouts in
+  `1x1 / 2x2 / 4x2`; `countdown` does days/hours to a target date stored at
+  `settings:countdown:<instanceId>` (templated `{{instanceId}}` per widget,
+  same syntax the `http` source uses for URL/body vars). Source layer:
+  `resolveClockSource(tz)` / `resolveCountdownSource(target, label)` pure
+  helpers in `lib/widgets/builtin-sources.ts` (client-safe; reused by the
+  sample-data fixtures so the gallery always shows "now"). Schema validation
+  enforced automatically by `BUILTIN_MANIFESTS`. No new dependencies.
 - **Widget platform (manifest-driven).** Users now author arbitrary e-ink
   widgets through a validated declarative `WidgetManifest` (JSON), not code —
   the "Server-Driven UI for e-ink" approach. Closed, versioned IR vocabulary

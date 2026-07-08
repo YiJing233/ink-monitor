@@ -83,14 +83,14 @@ async function resolveOwnedState(
   if (resolvedStore === CLOCK_STORE) {
     // Settings object: { tz?: string }. Missing => UTC default inside the helper.
     const settings = (await getOwnedState(userId, resolvedStore)) as { tz?: string } | null;
-    return resolveClockSource(settings?.tz);
+    return resolveClockSource(userId, settings?.tz);
   }
   if (resolvedStore.startsWith(COUNTDOWN_STORE_PREFIX)) {
     // Per-instance settings object: { target: ISO | ms, label?: string }.
     const settings = (await getOwnedState(userId, resolvedStore)) as
       | { target?: number | string; label?: string }
       | null;
-    return resolveCountdownSource(settings?.target, settings?.label ?? 'Countdown');
+    return resolveCountdownSource(userId, settings?.target, settings?.label ?? 'Countdown');
   }
   return (await getOwnedState(userId, resolvedStore)) ?? { items: [] };
 }

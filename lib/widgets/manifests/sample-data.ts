@@ -32,12 +32,13 @@ const HOURLY_24 = [
 /** Phase 1 non-usage built-in: live local time. Computed at module load so the
  *  preview always shows "now". Force UTC at sample time so the gallery card
  *  is reproducible regardless of where the preview was opened. */
-export const clockSample = resolveClockSource('UTC');
+export const clockSample = resolveClockSource('preview', 'UTC');
 
 /** Phase 1 non-usage built-in: days/hours until a target. Defaults to 30 days
  *  out so the preview is positive and visually meaningful; per-instance
  *  countdowns override via `settings:countdown:<id>` in the user's owned_state. */
 export const countdownSample = resolveCountdownSource(
+  'preview',
   Date.now() + 30 * 86_400_000,
   'Launch Day',
 );

@@ -7,6 +7,8 @@
  *   - `hours` is hours inside the remaining day, clamped to 0 when expired.
  *   - `label` defaults to "Countdown" when omitted.
  *   - `target` echoed back as ms since epoch when input is parseable, else 0.
+ *
+ * The `userId` is a reserved future-cache key, so tests just pass a stub.
  */
 import { describe, it, expect } from 'vitest';
 import { validateManifest } from '../ir';
@@ -15,11 +17,12 @@ import { resolveCountdownSource } from '../builtin-sources';
 
 const ONE_DAY = 86_400_000;
 const ONE_HOUR = 3_600_000;
+const USER = 'user-test';
 
 describe('resolveCountdownSource', () => {
   it('computes days/hours for a future target 30 days out', () => {
     const future = Date.now() + 30 * ONE_DAY + 4 * ONE_HOUR;
-    const out = resolveCountdownSource(future, 'Launch Day');
+    const out = resolveCountdownSource(USER, future, 'Launch Day');
     expect(out.days).toBe(30);
     expect(out.hours).toBe(4);
     expect(out.label).toBe('Launch Day');
@@ -28,7 +31,7 @@ describe('resolveCountdownSource', () => {
 
   it('clamps hours to 0 (and reports negative days) once expired', () => {
     const past = Date.now() - 2 * ONE_DAY - 5 * ONE_HOUR;
-    const out = resolveCountdownSource(past, 'Past Event');
+    const out = resolveCountdownSource(USER, past, 'Past Event');
     expect(out.days).toBeLessThanOrEqual(-1);
     expect(out.hours).toBe(0);
     expect(out.label).toBe('Past Event');
@@ -39,7 +42,7 @@ describe('resolveCountdownSource', () => {
     // A `Date` instance pointing at the current instant in `Date.now()` terms
     // should floor to days=0, hours=0 — there is no remaining millisecond.
     const now = Date.now();
-    const out = resolveCountdownSource(now, 'Right Now');
+    const out = resolveCountdownSource(USER, now, 'Right Now');
     expect(out.days).toBeLessThanOrEqual(0);
     expect(out.hours).toBe(0);
     expect(out.target).toBe(now);
@@ -48,8 +51,8 @@ describe('resolveCountdownSource', () => {
   it('accepts ISO date strings and Date instances, round-tripping to ms', () => {
     const targetMs = Date.now() + 14 * ONE_DAY + 30 * 60 * 1000;
     const iso = new Date(targetMs).toISOString();
-    const fromIso = resolveCountdownSource(iso, 'ISO');
-    const fromDate = resolveCountdownSource(new Date(targetMs), 'Date');
+    const fromIso = resolveCountdownSource(USER, iso, 'ISO');
+    const fromDate = resolveCountdownSource(USER, new Date(targetMs), 'Date');
     expect(fromIso.target).toBe(targetMs);
     expect(fromDate.target).toBe(targetMs);
     expect(fromIso.days).toBe(14);
@@ -57,17 +60,17 @@ describe('resolveCountdownSource', () => {
   });
 
   it('falls back to 0/0 + zero target when input is missing or unparseable', () => {
-    expect(resolveCountdownSource(undefined).days).toBe(0);
-    expect(resolveCountdownSource(undefined).hours).toBe(0);
-    expect(resolveCountdownSource(undefined).target).toBe(0);
-    expect(resolveCountdownSource('not a date').target).toBe(0);
-    expect(resolveCountdownSource('not a date').days).toBe(0);
-    expect(resolveCountdownSource(null, 'Fallback').label).toBe('Fallback');
+    expect(resolveCountdownSource(USER, undefined).days).toBe(0);
+    expect(resolveCountdownSource(USER, undefined).hours).toBe(0);
+    expect(resolveCountdownSource(USER, undefined).target).toBe(0);
+    expect(resolveCountdownSource(USER, 'not a date').target).toBe(0);
+    expect(resolveCountdownSource(USER, 'not a date').days).toBe(0);
+    expect(resolveCountdownSource(USER, null, 'Fallback').label).toBe('Fallback');
   });
 
   it('defaults the label to "Countdown" when omitted', () => {
     const future = Date.now() + ONE_DAY;
-    const out = resolveCountdownSource(future);
+    const out = resolveCountdownSource(USER, future);
     expect(out.label).toBe('Countdown');
   });
 

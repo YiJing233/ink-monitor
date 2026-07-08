@@ -18,7 +18,7 @@ export interface ClockData {
    *  `bignum` node can't template-suffix a `Bind`, so we ship the full string
    *  as a convenience field for layouts that want "14:30" in one number. */
   time: string;
-  /** Localized weekday name (e.g. "Wednesday", "星期三") — depends on the JS runtime's locale data. */
+  /** Localized weekday name (e.g. "Wednesday") — depends on the JS runtime's locale data. */
   weekday: string;
   /** Human-readable date string (e.g. "July 8, 2026") — already localized. */
   date: string;
@@ -44,11 +44,17 @@ const DEFAULT_TZ = 'UTC';
 /**
  * Compute the local time in `tz` (IANA, e.g. "Asia/Shanghai") for "now".
  *
- * @param tz Optional IANA time-zone name. Falls back to UTC when omitted or
- *           unrecognized — Intl throws on bad zones, which we want to keep the
- *           renderer alive instead of crashing the dashboard.
+ * Pure: no DB. The optional `userId` is reserved as an in-band cache key — when
+ * a future per-user prefs cache lives, this layer can flip it on without
+ * touching call sites. Today it just lets the test pass userId + tz together.
+ *
+ * @param userId Reserved for future per-user overrides; ignored today.
+ * @param tz      Optional IANA time-zone name. Falls back to UTC when omitted
+ *                or unrecognized — Intl throws on bad zones, which we want
+ *                to keep the renderer alive instead of crashing the dashboard.
  */
-export function resolveClockSource(tz?: string): ClockData {
+export function resolveClockSource(userId: string, tz?: string): ClockData {
+  void userId; // reserved
   const requested = (tz && tz.trim()) || DEFAULT_TZ;
   const safeTz = isValidTimeZone(requested) ? requested : DEFAULT_TZ;
 
@@ -78,19 +84,19 @@ export function resolveClockSource(tz?: string): ClockData {
   };
 }
 
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
 /**
  * Compute the days/hours remaining until `target`. Accepts anything Date
  * understands (epoch number, ISO string, or Date instance); misses clamp to
  * an expired state (`days: 0, hours: 0`) so the bignum stays readable.
+ *
+ * Pure: no DB. `userId` reserved like in `resolveClockSource`.
  */
 export function resolveCountdownSource(
+  userId: string,
   target: number | string | Date | undefined | null,
   label = 'Countdown',
 ): CountdownData {
+  void userId; // reserved
   const ms = normalizeTarget(target);
   if (ms == null) {
     return { days: 0, hours: 0, label, target: 0 };
@@ -105,6 +111,10 @@ export function resolveCountdownSource(
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   return { days, hours, label, target: ms };
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
 }
 
 function clampInt(raw: string | undefined, min: number, max: number): number {
