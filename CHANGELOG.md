@@ -7,9 +7,28 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- **Phase 1 non-usage built-ins: `weather` + `rss`.** Two new declarative
-  `http` manifests in `lib/widgets/manifests/` (registered in
-  `BUILTIN_MANIFESTS` and validated by `ManifestSchema`). `weather` calls
+- **Widget diagnostics: `GET /api/diagnostics/widgets`.** Owner-only
+  diagnostic view of the current user's widget platform state. Returns
+  each widget instance with its `manifestId`, `version`, `validate`
+  (`"ok"` or `"fail: <reason>"` — `safeValidateManifest` against
+  `ManifestSchema`, with the first Zod issue's message surfaced so an
+  operator can triage a corrupt row), plus `source`, `refresh`, and the
+  reserved telemetry placeholders `lastResolveMs` / `lastError` /
+  `lastResolvedAt` (null for now; reserved for a future
+  `widget_resolve_log` table so the client contract doesn't shift). Also
+  returns a per-dashboard summary: `id`, `name`, `widgetCount` (distinct
+  `widgetId`s across the dashboard's placements), and the list of
+  `devices` that have a non-empty layout (so the admin can see at a
+  glance which e-ink targets a dashboard is currently published to).
+  Session-only auth via `getRequiredUserId`.
+- **Phase 1 non-usage built-ins: `clock`, `countdown`, `weather`, `rss`.**
+  Four new manifests in `lib/widgets/manifests/`, registered alongside the
+  Phase 0 references in `BUILTIN_MANIFESTS` and validated by `ManifestSchema`.
+  `clock` reads a per-user time zone from `settings:clock` (owned-state),
+  24-hour wall time rendered via `bignum`+`text` layouts in
+  `1x1 / 2x2 / 4x2`; `countdown` does days/hours to a target date stored at
+  `settings:countdown:<instanceId>` (templated `{{instanceId}}` per widget,
+  same syntax the `http` source uses for URL/body vars). `weather` calls
   OpenWeatherMap's `/data/2.5/weather` with a templated `{{city}}` +
   user-supplied `{{OWM_KEY}}` secret, projects the response with JSONPath
   `select` (`temp`, `cond`, `humidity`, `wind`, `icon`), and renders
@@ -23,21 +42,29 @@ All notable changes to Ink Monitor are documented here. The format follows
   controlled static label prefixed to a bound value, e.g. "humidity 62") and
   `list.primary?` is now optional (an omitted `primary` falls back to the
   item itself, so an RSS select that already unwrapped to `item[*].title`
-  works without an intermediate re-shape). Sample data added to
-  `manifests/sample-data.ts`; `applySelect`-level tests in
-  `__tests__/weather.test.ts` and `__tests__/rss.test.ts` cover both the
-  manifest validation and the post-select shape. No new dependencies.
-- **Phase 1 non-usage built-ins: `clock` + `countdown`.** Two new manifests
-  in `lib/widgets/manifests/` registered alongside the existing Phase 0
-  references. `clock` reads a per-user time zone from `settings:clock`
-  (owned-state), 24-hour wall time rendered via `bignum`+`text` layouts in
-  `1x1 / 2x2 / 4x2`; `countdown` does days/hours to a target date stored at
-  `settings:countdown:<instanceId>` (templated `{{instanceId}}` per widget,
-  same syntax the `http` source uses for URL/body vars). Source layer:
+  works without an intermediate re-shape). Source layer:
   `resolveClockSource(tz)` / `resolveCountdownSource(target, label)` pure
   helpers in `lib/widgets/builtin-sources.ts` (client-safe; reused by the
-  sample-data fixtures so the gallery always shows "now"). Schema validation
-  enforced automatically by `BUILTIN_MANIFESTS`. No new dependencies.
+  sample-data fixtures so the gallery always shows "now"). Sample data
+  added to `manifests/sample-data.ts`; `applySelect`-level tests in
+  `__tests__/weather.test.ts` and `__tests__/rss.test.ts` cover both the
+  manifest validation and the post-select shape. No new dependencies.
+- **Composite `(user_id, updated_at DESC)` indexes** on `dashboards`,
+  `widgets`, and `user_manifests` so the per-user "most-recently-changed"
+  queries that power `/display` stay O(log n) instead of full-table-
+  scanning as the table grows.
+- **Shared `lib/safe-json.ts`** with label-aware parse-failure warn.
+  Single `safeJson(text, label)` helper used wherever user / upstream JSON
+  crosses a boundary; a parse failure logs the label (e.g. `"provider:
+  openai"`, `"http source: weather"`) instead of a bare
+  `SyntaxError: Unexpected token …` so the failure is traceable in the
+  logs without leaking the payload.
+- **CI: Node 22 / 24 matrix, 10-min job timeout, artifact upload, restored
+  `build` + `eink-smoke` jobs.** GitHub Actions now exercises the matrix,
+  ships the `pnpm test` and Playwright artifacts on failure for triage, and
+  re-runs the production Next.js build plus the e-ink smoke render on every
+  PR — the build job had drifted out of the workflow during the Phase 0
+  push and is back as a hard gate.
 - **Widget platform (manifest-driven).** Users now author arbitrary e-ink
   widgets through a validated declarative `WidgetManifest` (JSON), not code —
   the "Server-Driven UI for e-ink" approach. Closed, versioned IR vocabulary
@@ -118,6 +145,31 @@ All notable changes to Ink Monitor are documented here. The format follows
 - Vercel one-click deploy button.
 
 ### Changed
+- **Dither pipeline outputs 1-bit PNG.** Atkinson already produces a binary
+  image, but the encoder was writing it as 8-bit grayscale — 8x the bytes
+  for no fidelity gain. The PNG encoder now emits color-type 0 with a
+  1-bit-depth payload when the source is binary, matching the format the
+  device firmware actually consumes.
+- **Canvas editor field naming.** `EditorItem` now exposes
+  `widgetInstanceId` (identity of the saved row) and `manifestId` (type —
+  the `m` shorthand the editor uses internally), with a docstring in
+  `canvas-editor.tsx` distinguishing them. The PUT payload is unchanged
+  (`manifestId` for built-ins, `manifest` for custom); the rename is purely
+  internal to catch the `widgetId`/`manifestId` confusion that used to leak
+  into `placement` lookups.
+- **`album-client.tsx` uses `_fileId`, not URL regex.** The client used to
+  parse `it.src` (e.g. `/api/album-asset/foo/bar/abc123`) with a regex to
+  recover the `fileId`. That only worked for the disk store — vercel-blob
+  and s3 hand back remote URLs that don't match. Now every store sets a
+  `_fileId` field on each `Item` and the client reads that directly. The
+  `urls` store still doesn't, by design (external URLs aren't deletable
+  from the platform).
+- **`PatchSchema` split.** The dashboard PATCH route now keys overrides by
+  `DeviceIdSchema` (`z.enum(DEVICES)`), the per-device value by
+  `RefreshOverrideValueSchema` (clamped `[15, 86400]`), and the whole
+  payload by `RefreshOverridesSchema` (a `Partial<Record<DeviceId, …>>`).
+  Unknown device ids or field-name typos now return 400 instead of being
+  silently dropped.
 - `/display` renders the user's saved dashboard through the shared
   `DashboardCanvas` (opt-in; legacy provider/stock view is the fallback when
   no dashboard exists).
