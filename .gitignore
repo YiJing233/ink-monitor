@@ -13,3 +13,4 @@ data/*.db-shm
 *.log
 .vscode
 .idea
+tsconfig.tsbuildinfo

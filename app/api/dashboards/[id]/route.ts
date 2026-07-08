@@ -15,6 +15,7 @@ import {
 import { DEVICE_IDS } from '@/lib/widgets/devices';
 import { BUILTIN_MANIFESTS } from '@/lib/widgets/registry';
 import { safeValidateManifest, type Manifest } from '@/lib/widgets/ir';
+import { hasCollision, type Placement } from '@/lib/widgets/placement';
 import { randomId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -165,6 +166,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const wid = randomId();
     placements.push({ id: randomId(), widgetId: wid, x: it.x, y: it.y, w: it.w, h: it.h });
     widgetPayloads.push({ widgetId: wid, manifest, config: it.config ?? {} });
+  }
+
+  // F19: server-side collision check. The client UI already prevents overlaps,
+  // but the PUT path was an open door — any caller (curl, replayed request,
+  // buggy client) could write a layout with two widgets on top of each other,
+  // and the renderer would silently draw garbage. Reject the whole save up
+  // front, before we open the transaction.
+  for (const p of placements as Placement[]) {
+    if (hasCollision(placements as Placement[], p, p.id)) {
+      return NextResponse.json({ error: 'placement collision' }, { status: 400 });
+    }
   }
 
   let layouts: Record<string, unknown> = {};

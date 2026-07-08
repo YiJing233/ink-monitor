@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Manifest } from '@/lib/widgets/ir';
 import { safeValidateManifest } from '@/lib/widgets/ir';
 import { describeCapabilities, requiredSecrets } from '@/lib/widgets/capabilities';
+import { EGRESS_UNRESTRICTED } from '@/lib/widgets/registry-meta';
 import { isNewer } from '@/lib/widgets/version';
 
 export interface MarketEntry {
@@ -284,7 +285,16 @@ function GalleryCard({
       {manifest.description && <div style={{ fontSize: 13 }}>{manifest.description}</div>}
       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
         {notices.map((n, i) => (
-          <li key={i}>{n.text}</li>
+          <li
+            key={i}
+            style={
+              n.kind === EGRESS_UNRESTRICTED
+                ? { color: '#b58900', fontWeight: 600 }
+                : undefined
+            }
+          >
+            {n.text}
+          </li>
         ))}
       </ul>
       <div className="row" style={{ gap: 6, marginTop: 'auto' }}>
@@ -332,6 +342,7 @@ function PermissionPrompt({
 }) {
   const notices = describeCapabilities(manifest);
   const secrets = requiredSecrets(manifest);
+  const hasUnrestrictedEgress = notices.some((n) => n.kind === EGRESS_UNRESTRICTED);
   return (
     <div
       style={{
@@ -348,10 +359,26 @@ function PermissionPrompt({
     >
       <div className="panel" style={{ maxWidth: 460, width: '100%', background: '#fff', margin: 0 }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>安装「{manifest.name}」？</h3>
+        {hasUnrestrictedEgress && (
+          <div
+            role="alert"
+            style={{
+              background: '#fff7cc',
+              border: '2px solid #b58900',
+              color: '#3a2900',
+              padding: '8px 10px',
+              fontSize: 13,
+              marginBottom: 8,
+            }}
+          >
+            ⚠ 该组件未声明 egress — 安装后它可以从你的设备向任意公网主机发起请求（safe-fetch
+            会阻止内网/链接本地地址，但仍可访问任何公开站点）。除非你信任作者，否则不要继续。
+          </div>
+        )}
         <p style={{ fontSize: 13 }}>该组件将获得以下权限：</p>
         <ul style={{ fontSize: 13, paddingLeft: 18 }}>
           {notices.map((n, i) => (
-            <li key={i}>
+            <li key={i} style={n.kind === EGRESS_UNRESTRICTED ? { color: '#b58900', fontWeight: 600 } : undefined}>
               <strong>{n.kind}</strong> &mdash; {n.text}
             </li>
           ))}

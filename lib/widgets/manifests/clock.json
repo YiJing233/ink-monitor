@@ -1,0 +1,34 @@
+{
+  "v": 1,
+  "id": "clock",
+  "version": "0.1.0",
+  "name": "Clock",
+  "description": "Live local time in the user's preferred timezone (1x1 hour-only; 2x2 hour + minute; 4x2 full header + date). No egress — stays accurate via the display's normal refresh.",
+  "source": { "kind": "owned", "store": "settings:clock" },
+  "families": ["1x1", "2x2", "4x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "hour" }, "unit": ":00", "sub": { "$": "weekday" } },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "hour" }, "unit": ":{minute}" },
+        { "t": "text", "value": { "$": "date" } }
+      ]
+    },
+    "4x2": {
+      "t": "row",
+      "children": [
+        { "t": "bignum", "value": { "$": "hour" }, "unit": ":{minute}", "sub": { "$": "tz" } },
+        {
+          "t": "col",
+          "children": [
+            { "t": "text", "value": { "$": "weekday" }, "size": "title" },
+            { "t": "text", "value": { "$": "date" } }
+          ]
+        }
+      ]
+    }
+  },
+  "capabilities": { "writes": false },
+  "refresh": 60
+}

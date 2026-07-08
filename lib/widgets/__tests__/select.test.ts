@@ -9,6 +9,11 @@ const data = {
   ],
 };
 
+const arrRoot = [
+  { title: 'fix login', number: 17 },
+  { title: 'add widget', number: 42 },
+];
+
 describe('selectPath', () => {
   it('resolves dotted paths', () => {
     expect(selectPath(data, 'data.items')).toHaveLength(2);
@@ -26,6 +31,39 @@ describe('selectPath', () => {
   it('returns the root for an empty path', () => {
     expect(selectPath(data, '')).toBe(data);
   });
+
+  it('returns length for arrays and strings', () => {
+    expect(selectPath([1, 2, 3, 4], 'length')).toBe(4);
+    expect(selectPath(data, 'data.items.length')).toBe(2);
+    expect(selectPath(data, 'data.items.length0')).toBeUndefined();
+    expect(selectPath('hello', 'length')).toBe(5);
+    expect(selectPath({ items: [] }, 'items.length')).toBe(0);
+    expect(selectPath({ nope: 1 }, 'nope.length')).toBeUndefined();
+  });
+
+  it('treats [@] as an alias for the element wildcard', () => {
+    expect(selectPath(arrRoot, '[@]')).toEqual(arrRoot);
+    expect(selectPath(arrRoot, '[@].title')).toEqual(['fix login', 'add widget']);
+    expect(selectPath(data, 'list[@].main.temp')).toEqual([10, 12]);
+    expect(selectPath(data, 'data.items[@].summary')).toEqual(['a', 'b']);
+  });
+
+  it('walks numeric tokens (and chained indices) as array positions', () => {
+    expect(selectPath([10, 20, 30], '0')).toBe(10);
+    expect(selectPath([10, 20, 30], '2')).toBe(30);
+    expect(selectPath(arrRoot, '1.title')).toBe('add widget');
+    expect(selectPath(arrRoot, '0.number')).toBe(17);
+  });
+
+  it('combines numeric index with [*] wildcard (multi-layer index + map)', () => {
+    const list = [
+      { items: [{ v: 1 }, { v: 2 }] },
+      { items: [{ v: 3 }] },
+    ];
+    expect(selectPath(list, '[0].items[*].v')).toEqual([1, 2]);
+    expect(selectPath(list, '[1].items[0].v')).toBe(3);
+    expect(selectPath(list, '[*].items[0].v')).toEqual([1, 3]);
+  });
 });
 
 describe('applySelect', () => {
@@ -36,5 +74,17 @@ describe('applySelect', () => {
   });
   it('passes through when no select map', () => {
     expect(applySelect(data, undefined)).toBe(data);
+  });
+  it('supports length and [@] / [*] together in a select map (PR list example)', () => {
+    const out = applySelect(arrRoot, {
+      count: 'length',
+      items: '[@]',
+      titles: '[*].title',
+      numbers: '[*].number',
+    }) as Record<string, unknown>;
+    expect(out.count).toBe(2);
+    expect(out.items).toEqual(arrRoot);
+    expect(out.titles).toEqual(['fix login', 'add widget']);
+    expect(out.numbers).toEqual([17, 42]);
   });
 });

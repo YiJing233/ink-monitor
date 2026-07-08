@@ -12,6 +12,22 @@
  */
 
 /**
+ * Heuristic regex for e-ink reader user-agents. A full allow/deny list is
+ * inherently fragile (vendors change UA strings silently, new devices ship
+ * under a new label) — this is a best-effort filter. The fallback is the
+ * `<meta http-equiv="refresh">` already in the page, so a false negative
+ * (we treat an e-ink browser as a normal one) just causes some wasted
+ * partial-refresh attempts before the next full reload, not data loss.
+ *
+ * Covering the long tail: Kindle (incl. Silk-prefixed variants), Kobo
+ * (Libra / Clara / Sage / Elipsa), PocketBook, Barnes & Noble Nook, Onyx
+ * BOOX (matches both "BOOX" and the "Onyx" parent brand), Xiaomi / Mi
+ * Reader, and the Chinese-market Hyread Gaze. EBRD / INet are older ink
+ * firmware tokens we've seen in the wild.
+ */
+export const EINK_UA_PATTERN = /Kindle|Silk\/|Kobo|PocketBook|Nook|Onyx|Boox|Xiaomi|MiReader|EBRD|INet|Hyread/i;
+
+/**
  * Minimal shape required for the patch step. Keeps the test surface free of
  * a full DOM library (jsdom/happy-dom aren't installed) — anything with these
  * five members is enough. Matches the DOM `Element` API on the methods we use.
@@ -75,7 +91,7 @@ export function SoftRefreshScript({ intervalSec }: { intervalSec: number }) {
         __html: `(function(){
   try {
     var ua = navigator.userAgent || '';
-    var isEink = /Kindle|Silk\\/|Xiaomi|MiReader|EBRD|INet|Boox/i.test(ua);
+    var isEink = /Kindle|Silk\\/|Kobo|PocketBook|Nook|Onyx|Boox|Xiaomi|MiReader|EBRD|INet|Hyread/i.test(ua);
     if (isEink) return;
     if (!window.fetch || !window.IntersectionObserver) return;
     var interval = ${intervalSec * 1000};

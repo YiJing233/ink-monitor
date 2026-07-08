@@ -17,6 +17,7 @@ import { getDisplayData } from '../aggregator';
 import { decryptForUser } from '../crypto';
 import { getOwnedState, getWidgetSecret, listWidgets, type DashboardRow } from '../db';
 import { formatNumber, formatPercent } from '../utils';
+import { resolveClockSource, resolveCountdownSource } from './builtin-sources';
 import type { DeviceId } from './devices';
 import { validateManifest, type Manifest } from './ir';
 import { layoutFor, type Dashboard, type Placement } from './placement';
@@ -24,6 +25,11 @@ import { safeFetch } from './safe-fetch';
 import { applySelect } from './select';
 import { signValue } from './sign';
 import { getAlbumStore } from './album-store';
+
+/** Prefix for the per-user clock preference store. Single instance per user. */
+const CLOCK_STORE = 'settings:clock';
+/** Prefix for per-instance countdown stores. Full key = `settings:countdown:<widgetId>`. */
+const COUNTDOWN_STORE_PREFIX = 'settings:countdown:';
 
 export interface ResolveCtx {
   userId: string;
@@ -46,7 +52,7 @@ export async function resolveSource(
     case 'http':
       return resolveHttp(manifest, src, config, ctx);
     case 'owned':
-      return (await getOwnedState(ctx.userId, src.store)) ?? { items: [] };
+      return resolveOwnedState(ctx.userId, src.store);
     case 'asset':
       return resolveAsset(config);
     case 'album':
@@ -54,6 +60,28 @@ export async function resolveSource(
     default:
       return {};
   }
+}
+
+/**
+ * Resolve an `owned` store. The Phase 1 built-ins (clock + countdown) store
+ * user preferences (tz, target-date, label) in the same `owned_state` table as
+ * generic TODO/notes data, so we dispatch by store key here rather than in the
+ * manifest itself — keeps the IR fully declarative.
+ */
+async function resolveOwnedState(userId: string, store: string): Promise<unknown> {
+  if (store === CLOCK_STORE) {
+    // Settings object: { tz?: string }. Missing => UTC default inside the helper.
+    const settings = (await getOwnedState(userId, store)) as { tz?: string } | null;
+    return resolveClockSource(settings?.tz);
+  }
+  if (store.startsWith(COUNTDOWN_STORE_PREFIX)) {
+    // Per-instance settings object: { target: ISO | ms, label?: string }.
+    const settings = (await getOwnedState(userId, store)) as
+      | { target?: number | string; label?: string }
+      | null;
+    return resolveCountdownSource(settings?.target, settings?.label ?? 'Countdown');
+  }
+  return (await getOwnedState(userId, store)) ?? { items: [] };
 }
 
 async function resolveBuiltin(ref: string, config: Record<string, unknown>, ctx: ResolveCtx): Promise<unknown> {

@@ -34,3 +34,12 @@ export type RegistryItem = z.infer<typeof RegistryItemSchema>;
  */
 export const MARKET_AUTH_REQUIRED: readonly string[] = ['bearer', 'hmac'] as const;
 export type MarketAuthMode = (typeof MARKET_AUTH_REQUIRED)[number];
+
+/**
+ * Capability-notice kind emitted by `describeCapabilities` when an `http` widget
+ * declares no egress allowlist. The safe-fetch layer treats an empty allowlist
+ * as "any public host", so the Market UI must show this notice loudly. Client-
+ * safe so the admin Market can import the constant and style accordingly.
+ */
+export const EGRESS_UNRESTRICTED = 'unrestricted' as const;
+export type EgressUnrestricted = typeof EGRESS_UNRESTRICTED;

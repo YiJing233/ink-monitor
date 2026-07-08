@@ -6,9 +6,10 @@
  * Client-safe (pure).
  */
 import type { Manifest } from './ir';
+import { EGRESS_UNRESTRICTED } from './registry-meta';
 
 export interface CapabilityNotice {
-  kind: 'source' | 'egress' | 'secret' | 'write';
+  kind: 'source' | 'egress' | 'secret' | 'write' | typeof EGRESS_UNRESTRICTED;
   text: string;
 }
 
@@ -34,6 +35,20 @@ export function describeCapabilities(m: Manifest): CapabilityNotice[] {
   for (const d of m.capabilities?.egress ?? []) out.push({ kind: 'egress', text: `访问外部域名：${d}` });
   for (const s of m.capabilities?.secrets ?? []) out.push({ kind: 'secret', text: `需要你的密钥：${s}` });
   if (m.capabilities?.writes) out.push({ kind: 'write', text: '会写入你的数据' });
+
+  // Safety net: an http source with no egress allowlist is treated as "any
+  // public host" by safe-fetch (hostAllowed returns true for an empty list).
+  // Surface that prominently so the user is not surprised at install time.
+  if (
+    m.source.kind === 'http' &&
+    (!m.capabilities?.egress || m.capabilities.egress.length === 0)
+  ) {
+    out.push({
+      kind: EGRESS_UNRESTRICTED,
+      text: '⚠ 未声明 egress（unrestricted）— 该 widget 可访问任意公网主机',
+    });
+  }
+
   return out;
 }
 

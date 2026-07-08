@@ -5,7 +5,7 @@
  * interface that `patchDisplayRoot` accepts.
  */
 import { describe, it, expect } from 'vitest';
-import { patchDisplayRoot, type DisplayNode } from '../soft-refresh';
+import { patchDisplayRoot, type DisplayNode, EINK_UA_PATTERN } from '../soft-refresh';
 
 // --- Minimal fake DOM -------------------------------------------------------
 
@@ -133,5 +133,56 @@ describe('patchDisplayRoot — F3 fix', () => {
     patchDisplayRoot(oldRoot, newRoot);
 
     expect(oldUpdated.textContent).toBe('new ts');
+  });
+});
+
+// --- F8: e-ink UA detection --------------------------------------------------
+// The full allow/deny list is best-effort — see the comment on
+// EINK_UA_PATTERN — but we lock down the known common cases so a regex edit
+// that breaks an obvious match (Kindle / Kobo / PocketBook) is caught.
+
+describe('EINK_UA_PATTERN — F8', () => {
+  // e-ink readers: must match
+  it('matches a Kindle UA', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (X11; U; Linux armv7l like Maemo; en-US) AppleWebKit/534.2+ (KHTML, like Gecko) Version/5.0 Safari/533.2 Kindle/3.0+'),
+    ).toBe(true);
+  });
+
+  it('matches a Kobo UA (Libra / Clara / Sage / Elipsa share the Kobo token)', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Kobo/4.0'),
+    ).toBe(true);
+  });
+
+  it('matches a PocketBook UA', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (Linux; U; Android 4.0.4; en-us; PocketBook Touch 2 build/...)'),
+    ).toBe(true);
+  });
+
+  it('matches an Onyx BOOX UA via the "Onyx" token (covers rebrands)', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (Linux; Android 11; Onyx BOOX Poke5 Build/RP1A.201005.001)'),
+    ).toBe(true);
+  });
+
+  it('matches a Xiaomi MiReader UA', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (Linux; U; Android 4.4.2; zh-cn; MiReader Build/KOT49H)'),
+    ).toBe(true);
+  });
+
+  // normal browsers: must NOT match
+  it('does not match desktop Chrome', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'),
+    ).toBe(false);
+  });
+
+  it('does not match desktop Safari', () => {
+    expect(
+      EINK_UA_PATTERN.test('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'),
+    ).toBe(false);
   });
 });

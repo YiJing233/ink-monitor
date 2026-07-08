@@ -51,8 +51,9 @@
           "auth": { "type": "bearer", "secret": "GITHUB_TOKEN" },
           "select": {
             "count": "length",
-            "items": "[@]",
-            "titles": "[*].title"
+            "items": "[*]",
+            "titles": "[*].title",
+            "nums": "[*].number"
           }
         },
         "families": ["1x1", "2x2"],
