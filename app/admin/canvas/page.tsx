@@ -1,5 +1,6 @@
 import { getCurrentUserId } from '@/lib/session';
 import { listDashboards, listWidgets, listUserManifests } from '@/lib/db';
+import { safeJson } from '@/lib/safe-json';
 import { BUILTIN_MANIFESTS } from '@/lib/widgets/registry';
 import { validateManifest, type Manifest } from '@/lib/widgets/ir';
 import type { DeviceId } from '@/lib/widgets/devices';
@@ -55,12 +56,10 @@ function loadInitial(userId: string, catalog: Map<string, Manifest>): EditorInit
   const device = dash.base_device as DeviceId;
   // The on-disk layout uses `widgetId` (the *instance* id) — we resolve it
   // back to a `manifestId` by looking up the row in the `widgets` table.
-  let raw: Record<string, { widgetId: string; x: number; y: number; w: number; h: number }[]> = {};
-  try {
-    raw = JSON.parse(dash.layouts_json || '{}');
-  } catch {
-    /* ignore */
-  }
+  const raw = safeJson(dash.layouts_json || '{}', 'canvas.dashboards.layouts_json') as Record<
+    string,
+    { widgetId: string; x: number; y: number; w: number; h: number }[]
+  >;
   const byId = new Map(listWidgets(userId).map((w) => [w.id, w]));
 
   const layouts: Partial<Record<DeviceId, EditorItem[]>> = {};
@@ -80,11 +79,9 @@ function loadInitial(userId: string, catalog: Map<string, Manifest>): EditorInit
     }
     layouts[dev as DeviceId] = arr;
   }
-  let refreshOverrides: Partial<Record<DeviceId, number>> = {};
-  try {
-    refreshOverrides = JSON.parse(dash.refresh_overrides_json || '{}');
-  } catch {
-    /* ignore */
-  }
+  const refreshOverrides = safeJson(
+    dash.refresh_overrides_json || '{}',
+    'canvas.dashboards.refresh_overrides_json',
+  ) as Partial<Record<DeviceId, number>>;
   return { dashboardId: dash.id, name: dash.name, device, layouts, refreshOverrides };
 }

@@ -16,6 +16,7 @@ import { DEVICE_IDS } from '@/lib/widgets/devices';
 import { BUILTIN_MANIFESTS } from '@/lib/widgets/registry';
 import { safeValidateManifest, type Manifest } from '@/lib/widgets/ir';
 import { hasCollision, type Placement } from '@/lib/widgets/placement';
+import { safeJson } from '@/lib/safe-json';
 import { randomId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -123,12 +124,7 @@ function gcWidgets(userId: string): void {
   // wanted, restrict the outer loop to `dashboards where id = $id`.
   const referenced = new Set<string>();
   for (const d of listDashboards(userId)) {
-    let layouts: Record<string, { widgetId?: string }[]> = {};
-    try {
-      layouts = JSON.parse(d.layouts_json || '{}');
-    } catch {
-      /* ignore */
-    }
+    const layouts = safeJson(d.layouts_json || '{}', 'gc.dashboards.layouts_json') as Record<string, { widgetId?: string }[]>;
     for (const arr of Object.values(layouts)) for (const p of arr || []) if (p?.widgetId) referenced.add(p.widgetId);
   }
   for (const w of listWidgets(userId)) if (!referenced.has(w.id)) deleteWidget(userId, w.id);
@@ -191,12 +187,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  let layouts: Record<string, unknown> = {};
-  try {
-    layouts = JSON.parse(dash.layouts_json || '{}');
-  } catch {
-    /* ignore */
-  }
+  const layouts = safeJson(dash.layouts_json || '{}', 'dashboards.layouts_json') as Record<string, unknown>;
   layouts[parsed.data.device] = placements;
   const newLayoutsJson = JSON.stringify(layouts);
 

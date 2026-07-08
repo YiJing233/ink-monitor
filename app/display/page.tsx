@@ -1,4 +1,3 @@
-import { cache } from 'react';
 import { getDisplayData } from '@/lib/aggregator';
 import { getCurrentUserId } from '@/lib/session';
 import { formatNumber, formatPercent, formatTime, timeUntil } from '@/lib/utils';
@@ -8,13 +7,12 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const getCachedData = cache(async (userId: string | null) => {
-  return getDisplayData(userId || '__public__').catch(() => null);
-});
-
 export async function generateMetadata(): Promise<Metadata> {
   const userId = await getCurrentUserId();
-  const data = await getCachedData(userId);
+  // `getDisplayData` is wrapped in React's per-render cache inside
+  // `lib/aggregator.ts`, so this call and the one in the page body below
+  // share a single snapshot. We catch here because metadata must never throw.
+  const data = userId ? await getDisplayData(userId).catch(() => null) : null;
   return {
     title: data?.pageTitle || 'Monitor',
     other: data
@@ -39,7 +37,7 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
     userId = await getUserIdFromShareToken(params.share);
   }
 
-  const data = userId ? await getCachedData(userId) : null;
+  const data = userId ? await getDisplayData(userId).catch(() => null) : null;
 
   if (!data) {
     return (

@@ -12,10 +12,10 @@ import 'server-only';
  * This is the single place provider/stock data crosses into the widget pipeline,
  * so the duplicated fetch logic in aggregator.ts can eventually collapse here.
  */
-import { cache } from 'react';
 import { getDisplayData } from '../aggregator';
 import { decryptForUser } from '../crypto';
 import { getOwnedState, getWidgetSecret, listWidgets, type DashboardRow } from '../db';
+import { safeJson } from '../safe-json';
 import { formatNumber, formatPercent } from '../utils';
 import { resolveClockSource, resolveCountdownSource } from './builtin-sources';
 import type { DeviceId } from './devices';
@@ -34,9 +34,6 @@ const COUNTDOWN_STORE_PREFIX = 'settings:countdown:';
 export interface ResolveCtx {
   userId: string;
 }
-
-// One aggregator snapshot per user per render, shared across builtin widgets.
-const displayDataCached = cache((userId: string) => getDisplayData(userId));
 
 export async function resolveSource(
   manifest: Manifest,
@@ -96,7 +93,10 @@ async function resolveOwnedState(
 }
 
 async function resolveBuiltin(ref: string, config: Record<string, unknown>, ctx: ResolveCtx): Promise<unknown> {
-  const data = await displayDataCached(ctx.userId);
+  // `getDisplayData` is wrapped in React's per-render cache inside
+  // `lib/aggregator.ts`, so every builtin widget in the same render shares
+  // a single aggregator snapshot for `ctx.userId`.
+  const data = await getDisplayData(ctx.userId);
 
   if (ref === 'stocks') {
     return {
@@ -229,8 +229,8 @@ export async function resolveDashboard(
   row: DashboardRow,
   deviceOverride?: DeviceId,
 ): Promise<ResolvedDashboard> {
-  const layouts = safeJson(row.layouts_json) as Partial<Record<DeviceId, Placement[]>>;
-  const overrides = safeJson(row.refresh_overrides_json) as Partial<Record<DeviceId, number>>;
+  const layouts = safeJson(row.layouts_json, 'dashboards.layouts_json') as Partial<Record<DeviceId, Placement[]>>;
+  const overrides = safeJson(row.refresh_overrides_json, 'dashboards.refresh_overrides_json') as Partial<Record<DeviceId, number>>;
   const deviceId = (deviceOverride || row.base_device) as DeviceId;
   const dash: Dashboard = { id: row.id, name: row.name, baseDevice: row.base_device as DeviceId, widgets: [], layouts };
   const placements = layoutFor(dash, deviceId);
@@ -246,18 +246,10 @@ export async function resolveDashboard(
     } catch {
       continue; // skip a corrupt/out-of-spec manifest rather than breaking the page
     }
-    const config = (safeJson(wrow.config_json) as Record<string, unknown>) || {};
+    const config = (safeJson(wrow.config_json, 'widgets.config_json') as Record<string, unknown>) || {};
     const data = await resolveSource(manifest, config, { userId });
     items.push({ placement: p, manifest, data });
   }
   const override = overrides[deviceId];
   return { deviceId, items, refreshOverrideSec: typeof override === 'number' && override >= 15 ? override : null };
-}
-
-function safeJson(s: string): unknown {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return {};
-  }
 }

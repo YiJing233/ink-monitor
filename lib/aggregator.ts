@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { listProviders, listStocks, getAllSettings, getCache, setCache } from './db';
 import { fetchUsageForUser } from './providers';
 import { getQuote } from './stocks';
@@ -53,7 +54,15 @@ export interface StockView {
 const DEFAULT_REFRESH_MIN = 15;
 const DEFAULT_REFRESH_MAX = 3600 * 24;
 
-export async function getDisplayData(userId: string): Promise<DisplayData> {
+/**
+ * React per-render cache: every widget that calls `getDisplayData(userId)` in
+ * the same render receives the same snapshot, so the builtin fetcher and the
+ * `/display` page don't each pay for a full provider+stock sweep. The cache is
+ * scoped to one render (one request) — it is NOT a cross-request cache and
+ * does not interfere with the `fetch_cache` table that backs stale-while-
+ * revalidate semantics on the underlying provider/stock rows.
+ */
+export const getDisplayData = cache(async function getDisplayData(userId: string): Promise<DisplayData> {
   const settings = getAllSettings(userId);
   const defaultRefresh = Math.max(
     DEFAULT_REFRESH_MIN,
@@ -173,7 +182,7 @@ export async function getDisplayData(userId: string): Promise<DisplayData> {
     providers: providerResults,
     stocks: stockResults,
   };
-}
+});
 
 function clampRefresh(v: number | null | undefined, fallback: number): number {
   if (v == null || !Number.isFinite(v)) return fallback;

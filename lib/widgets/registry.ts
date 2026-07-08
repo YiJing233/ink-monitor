@@ -31,6 +31,25 @@ export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);
 
 export { SAMPLE_DATA };
 
+/**
+ * Dev-time cross-check: every built-in manifest should have a SAMPLE_DATA
+ * entry, otherwise the preview route (`/preview`) renders an empty widget
+ * for that manifest. TypeScript can't catch this (it's two unrelated
+ * records), so we emit a warning at module load — devs see it in their
+ * terminal, CI catches it via `pnpm dev` smoke runs. We intentionally
+ * do NOT throw: a stray sample-data omission shouldn't crash production
+ * (the worst case is an empty preview tile, which the production /display
+ * path doesn't use SAMPLE_DATA for at all).
+ */
+if (process.env.NODE_ENV !== 'production') {
+  for (const id of BUILTIN_LIST.map((m) => m.id)) {
+    if (!(id in SAMPLE_DATA)) {
+      // eslint-disable-next-line no-console
+      console.warn(`[registry] missing SAMPLE_DATA for "${id}"`);
+    }
+  }
+}
+
 export function getManifest(id: string): Manifest | undefined {
   return BUILTIN_MANIFESTS[id];
 }

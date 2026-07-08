@@ -1,4 +1,5 @@
 import { getDb } from './db';
+import { safeJson } from './safe-json';
 
 export type AuditAction =
   | 'create' | 'update' | 'delete' | 'move'
@@ -68,11 +69,7 @@ export function parseAuditEntry(e: AuditEntry): Omit<AuditEntry, 'before_json' |
 } {
   return {
     ...e,
-    before: e.before_json ? safeJson(e.before_json) : null,
-    after: e.after_json ? safeJson(e.after_json) : null,
+    before: e.before_json ? safeJson(e.before_json, 'audit_log.before_json') : null,
+    after: e.after_json ? safeJson(e.after_json, 'audit_log.after_json') : null,
   };
-}
-
-function safeJson(s: string): any {
-  try { return JSON.parse(s); } catch { return null; }
 }

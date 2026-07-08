@@ -1,8 +1,10 @@
 # Ink Monitor
 
 > A B&W monitoring dashboard tuned for **Kindle** and **小米电纸书** — track your
-> AI token-plan usage and a stock watchlist on a screen that barely uses power.
-> Multi-tenant SaaS, GitHub OAuth, per-user encrypted API keys, one-click deploy.
+> AI token-plan usage, a stock watchlist, and any e-ink widget you can describe
+> in JSON, on a screen that barely uses power.
+> **Manifest-driven widget platform**, multi-tenant SaaS, GitHub OAuth, per-user
+> encrypted API keys, one-click deploy.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYiJing233%2Fink-monitor%2Ftree%2Fmain&env=GITHUB_ID,GITHUB_SECRET,ENCRYPTION_KEY,NEXTAUTH_SECRET&envDescription=Required%20env%20vars&envLink=https%2F%2Fgithub.com%2Fyour-org%2Fink-monitor%2Fblob%2Fmain%2FDEPLOY.md)
 
@@ -82,6 +84,95 @@ Each provider card on `/display` shows:
   product working.
 - **Open-source skill** — `.claude/skills/quickstart/SKILL.md` packages the
   full setup for Claude Code.
+
+### Widget platform
+
+- **Declarative widget platform** — a widget is a validated `WidgetManifest`
+  (JSON), not code. Closed, versioned IR (`lib/widgets/ir.ts`), one trusted
+  renderer, multi-tenant safe by construction.
+- **8 built-in widgets** — `api-usage`, `stocks-table`, `todo-lark`, `gallery`,
+  `clock`, `countdown`, `weather`, `rss`. Drop them onto the canvas, save, done.
+- **Canvas editor with 1:1 e-ink preview** — `/admin/canvas` snap-grid DnD,
+  device switch, live `/preview?dashboard=<id>` iframe at native pixels. The
+  preview uses the same renderer as `/display`, so what you see is what the
+  glass will show.
+- **Curated Market + signed/private registry** — `/admin/market` installs
+  widgets into a per-user library with an install-time permission prompt
+  (egress / secrets / writes). Optional `MARKET_REGISTRY_TOKEN` (Bearer) or
+  `MARKET_REGISTRY_HMAC_KEY` (HMAC) auth for a private registry.
+- **Multi-backend album upload** — `disk` (self-host), `vercel-blob`
+  (auto-detected on Vercel via `BLOB_READ_WRITE_TOKEN`), and `s3` (S3 / R2 /
+  MinIO via `S3_ENDPOINT`). Pick with `ALBUM_STORE=...`; SDKs are
+  `optionalDependencies`, so they don't force-install.
+- **SSRF-hardened + HMAC-signed asset proxy** — `/api/asset/dither` only serves
+  URLs the platform itself minted (HMAC-SHA256 keyed by `ENCRYPTION_KEY`);
+  1-bit Atkinson / Floyd-Steinberg dithering for crisp e-ink photos.
+
+---
+
+## Widget Platform
+
+Ink Monitor ships as a **manifest-driven widget platform** — the "Server-Driven
+UI for e-ink" approach (think Block Kit / Adaptive Cards, but tuned for
+B&W Kindle glass).
+
+- A widget is a validated **`WidgetManifest`** (JSON), never code. The
+  authoring surface — LLM via the skill, or the canvas editor — is constrained
+  to producing valid manifests; the platform owns the trusted renderer.
+- Six layers wired end-to-end: source trust tiers → IR vocabulary → binding
+  resolver → renderer → per-device placement → gen-UI authoring loop. See
+  [ARCHITECTURE.md](ARCHITECTURE.md) for the deep dive.
+- Eight built-in widgets: **`api-usage`**, **`stocks-table`**, **`todo-lark`**,
+  **`gallery`**, **`clock`**, **`countdown`**, **`weather`**, **`rss`**.
+- Five reference device profiles (Kindle Paperwhite / Oasis, 小米多看 Pro,
+  Boox Note, 通用横屏) — the canvas editor keeps one layout per device and
+  auto-reflows when you seed a new one.
+- Install-time permission prompt (egress / secrets / writes) comes from the
+  manifest's `capabilities`, so the user sees exactly what they're agreeing to
+  before a widget ships a request.
+
+An AI-assisted authoring loop lives at
+[`.claude/skills/widget/SKILL.md`](.claude/skills/widget/SKILL.md) — it walks
+Claude through interview → manifest → validate → preview → install.
+
+## Widget development
+
+Widgets are authored as JSON. The simplest built-in (`api-usage`, the
+token-usage card) reads like this:
+
+```json
+{
+  "v": 1,
+  "id": "api-usage",
+  "name": "API Usage",
+  "source": { "kind": "builtin", "ref": "provider" },
+  "families": ["1x1", "2x1", "2x2"],
+  "layout": {
+    "1x1": { "t": "bignum", "value": { "$": "used_pct" }, "unit": "%", "sub": { "$": "name" } },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "metric", "label": "Tokens", "value": { "$": "used" }, "max": { "$": "limit" }, "unit": "tok" },
+        { "t": "series", "kind": "bar", "data": { "$": "hourly" }, "window": "24h", "unit": "tok" }
+      ]
+    }
+  },
+  "capabilities": { "egress": ["api.openai.com"], "secrets": ["OPENAI_API_KEY"] },
+  "refresh": 300
+}
+```
+
+A `Bind` is `{ "$": "path" }` into the resolved source data. For the full
+schema — `bignum`, `metric`, `series`, `table`, `list` (+ `check`), `text`,
+`image`, `qr`, `row`, `col`, `grid`, `divider` — see
+[`lib/widgets/ir.ts`](lib/widgets/ir.ts).
+
+Run the widget test suite locally:
+
+```bash
+pnpm test                          # vitest: safe-fetch, select, dither, sign, qr, …
+pnpm test lib/widgets              # widget-specific suite
+```
 
 ---
 
@@ -270,13 +361,18 @@ script runs:
 
 | Layer | Protection |
 |---|---|
-| **At rest — API keys** | AES-256-GCM, per-user key via `PBKDF2(ENCRYPTION_KEY, user_id, 100k, sha256)`. Random IV per record. |
+| **At rest — API keys** | AES-256-GCM, per-user key via `PBKDF2(ENCRYPTION_KEY, user_id, 100k, sha256)`. Random IV per record. Production refuses to boot if `ENCRYPTION_KEY` is unset. |
 | **In transit** | HTTPS via Vercel / your reverse proxy. The CLI uses bearer tokens. |
 | **Master key** | `ENCRYPTION_KEY` lives only in your deployment's env. If leaked: rotate, and re-encrypt every row. |
 | **DB alone** | Useless. Every key is bound to `user_id`; without the master, PBKDF2 can't derive the per-user key. |
 | **OAuth** | GitHub scope is `read:user user:email`. We never see private repos. No password is stored. |
-| **Public surface** | `/display` and `/api/snapshot` are the only public endpoints. Snapshot is scoped by session cookie OR `?share=TOKEN`. |
+| **Public surface** | `/display` and `/api/snapshot` are the only public endpoints. Snapshot is scoped by session cookie OR `?share=TOKEN`. Legacy `?u=<userId>` and `x-ink-user` fallbacks are removed — anonymous reads return 401. |
 | **Share token** | 24-byte base64url, revocable. Without it, `/display?share=…` returns an empty snapshot. |
+| **Widget source (`http`)** | `lib/widgets/safe-fetch.ts`: scheme allowlist, DNS-resolved private/loopback/metadata IP blocking, manual redirect re-validation, timeout + byte cap, `capabilities.egress` per-manifest allowlist. Closes SSRF for user-installed widgets. |
+| **Asset proxy** | `/api/asset/dither` only serves URLs the platform itself minted — HMAC-SHA256 over the path, keyed by `ENCRYPTION_KEY` (`lib/widgets/sign.ts`). Closes the open-proxy hole for dithered images. |
+| **Album paths** | Zod-segment whitelist on `/api/albums/[name]` / `[fileId]` + `assertSafeAlbumPath()` (`path.resolve` prefix assertion) inside `lib/widgets/album-store.ts`. Closes the path-traversal `name="../../etc"` vector. |
+| **Widget save** | `PUT /api/dashboards/[id]` wraps insert + update + GC in a single `withTx()` (better-sqlite3 transaction). No half-saved dashboards. |
+| **Registry auth** | Opt-in `MARKET_REGISTRY_TOKEN` (Bearer) or `MARKET_REGISTRY_HMAC_KEY` (HMAC over `METHOD\nURL\nTS`, 5-min replay window) flips the curated `/api/market` from anonymous to authenticated. |
 
 ### Threat model — what can go wrong
 
@@ -406,6 +502,24 @@ Prints the exact commands needed for each target.
 - [x] `npx ink-monitor` CLI
 - [x] `/quickstart` skill for Claude Code
 - [x] Vercel one-click deploy
+
+---
+
+## See also
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — widget platform layers (IR, source,
+  renderer, placement, canvas, market), trust tiers, and the
+  `1:1 preview guarantee`.
+- [CHANGELOG.md](CHANGELOG.md) — release notes (widget platform, P1 hardening,
+  hosted album backends, etc.).
+- [`/admin/canvas`](app/admin/canvas) — canvas editor + live device preview.
+- [`/admin/market`](app/admin/market) — curated widget gallery + per-user
+  library + portable share/import.
+- [`/admin/albums`](app/admin/albums) — album manager (disk / Vercel Blob / S3).
+- [`.claude/skills/widget/SKILL.md`](.claude/skills/widget/SKILL.md) — gen-UI
+  authoring loop: interview → manifest → validate → preview → install.
+- [`.claude/skills/quickstart/SKILL.md`](.claude/skills/quickstart/SKILL.md) —
+  one-sentence deploy for Claude Code.
 
 ---
 

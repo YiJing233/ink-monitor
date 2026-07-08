@@ -15,12 +15,14 @@ jobs:
   test:
     name: Test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22]
+        node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -36,21 +38,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Rebuild better-sqlite3 native binding
-        run: pnpm rebuild better-sqlite3
-
       - name: Type-check
+        # Invoke tsc directly via pnpm exec — skips any pnpm-managed
+        # post-install rebuild that could be tripped by native modules.
         run: pnpm exec tsc --noEmit
 
       - name: Run vitest
         run: pnpm test
 
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-output-node-${{ matrix.node }}
+          path: |
+            vitest-report.json
+            coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
   build:
     name: Build (Node 22)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: test
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -66,9 +80,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Rebuild better-sqlite3
-        run: pnpm rebuild better-sqlite3
-
       - name: Build
         env:
           ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY || 'a'.repeat(64) }}
@@ -79,9 +90,11 @@ jobs:
   eink-smoke:
     name: E-ink display smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -95,9 +108,12 @@ jobs:
           cache: pnpm
 
       - name: Install + build
+        env:
+          ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY || 'a'.repeat(64) }}
+          NEXTAUTH_SECRET: test-secret-please-ignore
+          ENABLE_DEV_LOGIN: 'true'
         run: |
           pnpm install --frozen-lockfile
-          pnpm rebuild better-sqlite3
           pnpm build
 
       - name: Start server in background
