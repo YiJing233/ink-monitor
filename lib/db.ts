@@ -224,6 +224,18 @@ function initSchema(db: Database.Database) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_dashboards_user ON dashboards(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_widgets_user ON widgets(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_user_manifests_user ON user_manifests(user_id)');
+
+  // Composite indexes for the canvas reload hot path.
+  //
+  // The display route reloads a user's widgets / dashboards / user_manifests on
+  // every refresh - sometimes multiple times per minute per device. Without the
+  // (user_id, updated_at) covering index SQLite has to read every row for the
+  // user and sort in memory; with it the WHERE + ORDER BY is satisfied from
+  // the index alone. The single-column user_id indexes above stay around for
+  // callers that filter only by user_id (no order), which is also common.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_widgets_user_updated ON widgets(user_id, updated_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_dashboards_user_updated ON dashboards(user_id, updated_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_user_manifests_user_updated ON user_manifests(user_id, updated_at DESC)');
 }
 
 // --- Users ---
