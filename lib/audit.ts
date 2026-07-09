@@ -1,12 +1,29 @@
 import { getDb } from './db';
 import { safeJson } from './safe-json';
 
+/**
+ * Audit action vocabulary.
+ *
+ * Core verbs (`create`/`update`/`delete`/`move`) are kept generic so existing
+ * callers don't churn. Dot-suffixed forms (`widget.create`, `dashboard.save`,
+ * `manifest.install`, `secret.add`) carry a noun prefix so the audit UI can
+ * group related actions under a resource without needing a separate column.
+ */
 export type AuditAction =
   | 'create' | 'update' | 'delete' | 'move'
   | 'login' | 'logout' | 'share.create' | 'share.revoke' | 'share.rotate'
-  | 'account.delete';
+  | 'account.delete'
+  // Widget platform -- resource.action
+  | 'widget.create' | 'widget.update' | 'widget.delete'
+  | 'manifest.install' | 'manifest.delete'
+  | 'secret.add' | 'secret.remove'
+  | 'dashboard.create' | 'dashboard.update' | 'dashboard.save' | 'dashboard.delete'
+  | 'album.upload' | 'album.save' | 'album.delete';
 
-export type AuditTargetType = 'provider' | 'stock' | 'settings' | 'share' | 'account' | 'webhook' | 'session';
+export type AuditTargetType =
+  | 'provider' | 'stock' | 'settings' | 'share' | 'account' | 'webhook' | 'session'
+  // Widget platform -- resource nouns, line up with AuditAction prefixes
+  | 'widget' | 'manifest' | 'secret' | 'dashboard' | 'album';
 
 export interface AuditEntry {
   id: number;

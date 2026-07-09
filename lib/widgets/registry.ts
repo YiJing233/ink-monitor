@@ -19,6 +19,9 @@ import notes from './manifests/notes.json';
 import githubReleases from './manifests/github-releases.json';
 import tickerTape from './manifests/ticker-tape.json';
 import strava from './manifests/strava.json';
+import spotifyNowPlaying from './manifests/spotify-now-playing.json';
+import newsHeadlines from './manifests/news-headlines.json';
+import mastodonFeed from './manifests/mastodon-feed.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -35,6 +38,9 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   'github-releases': validateManifest(githubReleases),
   'ticker-tape': validateManifest(tickerTape),
   strava: validateManifest(strava),
+  'spotify-now-playing': validateManifest(spotifyNowPlaying),
+  'news-headlines': validateManifest(newsHeadlines),
+  'mastodon-feed': validateManifest(mastodonFeed),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);

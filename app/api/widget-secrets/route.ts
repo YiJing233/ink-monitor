@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getRequiredUserId } from '@/lib/session';
 import { encryptForUser } from '@/lib/crypto';
 import { listWidgetSecretNames, setWidgetSecret, deleteWidgetSecret } from '@/lib/db';
+import { recordAudit } from '@/lib/audit';
 
 /**
  * Per-user secrets for `http` widget sources (e.g. OWM_KEY). Values are
@@ -39,7 +40,16 @@ export async function POST(req: NextRequest) {
   }
   const parsed = SetSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  // Audit BEFORE encrypt+store: we only persist the name, never the plaintext.
   setWidgetSecret(userId, parsed.data.name, encryptForUser(userId, parsed.data.value));
+  recordAudit({
+    userId,
+    action: 'secret.add',
+    targetType: 'secret',
+    targetId: parsed.data.name,
+    // Intentionally do not include value/ciphertext — name only.
+    after: { name: parsed.data.name },
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -53,5 +63,12 @@ export async function DELETE(req: NextRequest) {
   const name = req.nextUrl.searchParams.get('name');
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 });
   deleteWidgetSecret(userId, name);
+  recordAudit({
+    userId,
+    action: 'secret.remove',
+    targetType: 'secret',
+    targetId: name,
+    before: { name },
+  });
   return NextResponse.json({ ok: true });
 }

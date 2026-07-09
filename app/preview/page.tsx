@@ -42,8 +42,36 @@ const SAMPLE: LightDash = {
   ],
 };
 
-export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ d?: string; dashboard?: string }> }) {
+export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ d?: string; dashboard?: string; demo?: string; family?: string }> }) {
   const sp = await searchParams;
+
+  // Demo mode (used by `/widgets` gallery cards): render a single built-in
+  // widget at the requested family (or its first declared family) using
+  // SAMPLE_DATA — a 1:1 e-ink preview with no per-user data and no layout
+  // authoring required. Unknown demo id falls through to the sample dashboard.
+  if (sp.demo) {
+    const m = BUILTIN_MANIFESTS[sp.demo];
+    if (m) {
+      const family = sp.family && (m.families as readonly string[]).includes(sp.family)
+        ? (sp.family as typeof m.families[number])
+        : m.families[0];
+      const [w, h] = family.split('x').map(Number);
+      const data = SAMPLE_DATA[sp.demo] ?? {};
+      return (
+        <DashboardCanvas
+          deviceId="kindle-pw"
+          items={[
+            {
+              placement: { id: 'demo', widgetId: sp.demo, x: 0, y: 0, w, h },
+              manifest: m,
+              data,
+              widgetInstanceId: `demo-${sp.demo}`,
+            },
+          ]}
+        />
+      );
+    }
+  }
 
   // Real-data mode: render the logged-in owner's actual dashboard 1:1 (same
   // renderer as /display). Only ever renders the requester's own dashboard.

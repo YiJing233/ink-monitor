@@ -14,6 +14,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { t, type Locale } from '@/lib/i18n';
 
 const MAX_LINES = 50;
 const MAX_LINE_LEN = 200;
@@ -21,9 +22,11 @@ const MAX_LINE_LEN = 200;
 export default function EditNotesClient({
   widgetId,
   initialLines,
+  locale,
 }: {
   widgetId: string;
   initialLines: string[];
+  locale: Locale;
 }) {
   const [text, setText] = useState(initialLines.join('\n'));
   const [busy, setBusy] = useState(false);
@@ -59,10 +62,10 @@ export default function EditNotesClient({
         const j = await r.json().catch(() => ({}));
         throw new Error(typeof j.error === 'string' ? j.error : `HTTP ${r.status}`);
       }
-      setStatus({ kind: 'ok', msg: `已保存 ${previewLines.length} 行` });
+      setStatus({ kind: 'ok', msg: t(locale, 'admin.editNotes.status.saved', { count: previewLines.length }) });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus({ kind: 'err', msg: '保存失败: ' + msg });
+      setStatus({ kind: 'err', msg: t(locale, 'admin.editNotes.status.saveFailed', { message: msg }) });
     } finally {
       setBusy(false);
     }
@@ -72,7 +75,7 @@ export default function EditNotesClient({
     <form onSubmit={save} className="panel">
       <div className="field">
         <label className="label" htmlFor="notes-ta">
-          笔记（每行一条）
+          {t(locale, 'admin.editNotes.label.notes')}
         </label>
         <textarea
           id="notes-ta"
@@ -83,10 +86,8 @@ export default function EditNotesClient({
           spellCheck={false}
         />
         <div className="hint">
-          {previewLines.length} / {MAX_LINES} 行 · 每行 ≤ {MAX_LINE_LEN} 字符
-          {tooLong ? (
-            <span style={{ color: '#a00', fontWeight: 700 }}> · 有行超过 {MAX_LINE_LEN} 字符，保存将被拒绝</span>
-          ) : null}
+          {t(locale, 'admin.editNotes.counter', { count: previewLines.length, max: MAX_LINES, len: MAX_LINE_LEN })}
+          {tooLong ? t(locale, 'admin.editNotes.tooLong', { len: MAX_LINE_LEN }) : null}
         </div>
       </div>
 
@@ -97,7 +98,7 @@ export default function EditNotesClient({
       )}
 
       <button className="btn primary" type="submit" disabled={busy || tooLong || previewLines.length === 0}>
-        {busy ? '保存中…' : '保存'}
+        {busy ? t(locale, 'admin.editNotes.saving') : t(locale, 'admin.editNotes.save')}
       </button>
       <button
         type="button"
@@ -105,9 +106,9 @@ export default function EditNotesClient({
         style={{ marginLeft: 8 }}
         onClick={() => setText('')}
         disabled={busy}
-        title="清空（不会自动保存）"
+        title={t(locale, 'admin.editNotes.title.clear')}
       >
-        清空
+        {t(locale, 'admin.editNotes.clear')}
       </button>
     </form>
   );

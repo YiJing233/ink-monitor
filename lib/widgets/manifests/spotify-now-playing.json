@@ -1,0 +1,62 @@
+{
+  "v": 1,
+  "id": "spotify-now-playing",
+  "version": "0.1.0",
+  "name": "Spotify — Now Playing",
+  "description": "Currently playing track on Spotify. The install flow prompts for a `SPOTIFY_TOKEN` (Bearer; the standard Spotify Web API OAuth flow is documented in the widget skill). The http source calls `GET /v1/me/player/currently-playing` and projects the playing track's `item.name` / `item.artists[0].name` / `item.album.name` / `is_playing`. 1x1 stacks the title above the artist; 2x2 adds the album as a third line; 4x2 splits a header row (title + playing state) over artist + album lines.",
+  "source": {
+    "kind": "http",
+    "url": "https://api.spotify.com/v1/me/player/currently-playing",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "SPOTIFY_TOKEN" },
+    "select": {
+      "title": "item.name",
+      "artist": "item.artists[0].name",
+      "album": "item.album.name",
+      "is_playing": "is_playing"
+    }
+  },
+  "families": ["1x1", "2x2", "4x2"],
+  "layout": {
+    "1x1": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "text", "value": { "$": "artist" } }
+      ]
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "text", "value": { "$": "artist" } },
+        { "t": "text", "value": { "$": "album" }, "size": "caption" }
+      ]
+    },
+    "4x2": {
+      "t": "col",
+      "children": [
+        {
+          "t": "row",
+          "children": [
+            { "t": "text", "value": { "$": "title" }, "size": "title" },
+            { "t": "text", "value": { "$": "is_playing" }, "size": "caption", "prefix": "playing: " }
+          ]
+        },
+        {
+          "t": "row",
+          "children": [
+            { "t": "text", "value": { "$": "artist" } },
+            { "t": "text", "value": { "$": "album" }, "size": "caption" }
+          ]
+        }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["api.spotify.com"],
+    "secrets": ["SPOTIFY_TOKEN"],
+    "writes": false
+  },
+  "refresh": 60
+}

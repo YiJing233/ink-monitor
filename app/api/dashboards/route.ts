@@ -4,6 +4,7 @@ import { getRequiredUserId } from '@/lib/session';
 import { listDashboards, insertDashboard } from '@/lib/db';
 import { randomId } from '@/lib/utils';
 import { DEVICE_IDS } from '@/lib/widgets/devices';
+import { recordAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,13 @@ export async function POST(req: NextRequest) {
     layouts_json: '{}',
     refresh_overrides_json: '{}',
     display_order: listDashboards(userId).length,
+  });
+  recordAudit({
+    userId,
+    action: 'dashboard.create',
+    targetType: 'dashboard',
+    targetId: id,
+    after: { name: parsed.data.name, base_device: parsed.data.base_device || 'kindle-pw' },
   });
   return NextResponse.json({ id, ok: true });
 }

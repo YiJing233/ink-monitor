@@ -30,6 +30,26 @@ vi.mock('@/lib/db', () => ({
   latestWidgetResolve: (uid: string, wid: string) => latestWidgetResolve(uid, wid),
 }));
 
+// The route reads the locale from `next/headers` (cookies + Accept-Language)
+// so the human-facing `validate` strings can be localized. We stub both
+// helpers to return controlled values per test, so the locale-resolution
+// logic inside the route can be exercised end-to-end.
+const cookieStore = new Map<string, string>();
+const headersStore = new Map<string, string>();
+const cookiesMock = vi.fn(async () => ({
+  get: (name: string) => {
+    const v = cookieStore.get(name);
+    return v == null ? undefined : { name, value: v };
+  },
+}));
+const headersMock = vi.fn(async () => ({
+  get: (name: string) => headersStore.get(name) ?? null,
+}));
+vi.mock('next/headers', () => ({
+  cookies: () => cookiesMock(),
+  headers: () => headersMock(),
+}));
+
 import { GET } from '../route';
 
 // A minimal-but-valid manifest: keeps the test independent from
@@ -95,6 +115,8 @@ function widgetRow(id: string, manifest: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cookieStore.clear();
+  headersStore.clear();
 });
 
 describe('GET /api/diagnostics/widgets', () => {
@@ -236,5 +258,62 @@ describe('GET /api/diagnostics/widgets', () => {
     expect(w.lastResolveMs).toBe(250);
     expect(w.lastError).toBe('HTTP 503');
     expect(w.lastResolvedAt).toBe('2026-07-09T12:00:00.000Z');
+  });
+
+  // Locale resolution — the `validate` field is a human-facing string
+  // (e.g. "fail: <reason>" / "ok") so we localize it to the request's
+  // NEXT_LOCALE cookie / Accept-Language. The test below pins the
+  // end-to-end behavior so a future refactor can't silently drop the
+  // i18n integration.
+  describe('localized validate messages', () => {
+    it('returns English validate strings by default (no cookie, no Accept-Language)', async () => {
+      getRequiredUserId.mockResolvedValueOnce('user-1');
+      listWidgets.mockReturnValueOnce([widgetRow('w-ok', VALID_MANIFEST)]);
+      listDashboards.mockReturnValueOnce([]);
+
+      const res = await GET();
+      const body = (await res.json()) as { locale: string; widgets: { validate: string }[] };
+      expect(body.locale).toBe('en');
+      expect(body.widgets[0].validate).toBe('ok');
+      expect(res.headers.get('content-language')).toBe('en');
+    });
+
+    it('returns Chinese validate strings when the NEXT_LOCALE cookie is "zh"', async () => {
+      cookieStore.set('NEXT_LOCALE', 'zh');
+      getRequiredUserId.mockResolvedValueOnce('user-1');
+      listWidgets.mockReturnValueOnce([
+        widgetRow('w-ok', VALID_MANIFEST),
+        // Manifest body that fails the Zod schema so the failure-prefix
+        // path runs through the dictionary too.
+        widgetRow('w-bad', BROKEN_MANIFEST),
+      ]);
+      listDashboards.mockReturnValueOnce([]);
+
+      const res = await GET();
+      const body = (await res.json()) as {
+        locale: string;
+        widgets: { instanceId: string; validate: string }[];
+      };
+      expect(body.locale).toBe('zh');
+      // The "ok" sentinel flips to its zh translation; the failure reason
+      // keeps the original Zod text but the `fail:` prefix is translated.
+      const byId = Object.fromEntries(body.widgets.map((w) => [w.instanceId, w]));
+      expect(byId['w-ok'].validate).toBe('通过');
+      expect(byId['w-bad'].validate.startsWith('失败: ')).toBe(true);
+      expect(res.headers.get('content-language')).toBe('zh');
+    });
+
+    it('returns Chinese validate strings when the Accept-Language is "zh-CN" and no cookie is set', async () => {
+      // No NEXT_LOCALE cookie — Accept-Language is the only signal.
+      headersStore.set('accept-language', 'zh-CN,en;q=0.8');
+      getRequiredUserId.mockResolvedValueOnce('user-1');
+      listWidgets.mockReturnValueOnce([widgetRow('w-ok', VALID_MANIFEST)]);
+      listDashboards.mockReturnValueOnce([]);
+
+      const res = await GET();
+      const body = (await res.json()) as { locale: string; widgets: { validate: string }[] };
+      expect(body.locale).toBe('zh');
+      expect(body.widgets[0].validate).toBe('通过');
+    });
   });
 });

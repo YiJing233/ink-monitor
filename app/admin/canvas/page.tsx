@@ -1,15 +1,20 @@
+import { cookies, headers } from 'next/headers';
 import { getCurrentUserId } from '@/lib/session';
 import { listDashboards, listWidgets, listUserManifests } from '@/lib/db';
 import { safeJson } from '@/lib/safe-json';
 import { BUILTIN_MANIFESTS } from '@/lib/widgets/registry';
 import { validateManifest, type Manifest } from '@/lib/widgets/ir';
 import type { DeviceId } from '@/lib/widgets/devices';
+import { resolveLocale, t } from '@/lib/i18n';
 import CanvasEditor, { type EditorInitial, type EditorItem } from './canvas-editor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CanvasPage() {
   const userId = await getCurrentUserId();
+  const c = await cookies();
+  const h = await headers();
+  const locale = resolveLocale(c.get('NEXT_LOCALE')?.value || null, h.get('accept-language'));
   const userManifests = userId ? loadUserManifests(userId) : [];
 
   // Catalog = built-ins + the user's library (custom / skill-authored / installed).
@@ -23,16 +28,9 @@ export default async function CanvasPage() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Canvas</h2>
-      <p className="hint">
-        拖拽排布小组件，右侧是水墨屏 <strong>1:1 实时预览</strong>。点 <strong>保存</strong> 写入你的看板，
-        之后 <code>/display</code> 渲染它；保存后可「查看真实数据」用自己的数据 1:1 预览。自定义组件（◇）来自 skill
-        或 <a href="/admin/market">Market</a> 安装。
-        <br />
-        <strong>每个设备各存一份布局 + 刷新节奏</strong>：切换设备会载入该设备已存的布局，没有就从当前布局自动重排作为起点。
-        <strong>刷新覆盖</strong>是「不低于 manifest 默认 refresh」的上限——你设得越低，刷得越勤（更费电）。
-      </p>
-      <CanvasEditor initial={initial} userManifests={userManifests} />
+      <h2 style={{ marginTop: 0 }}>{t(locale, 'admin.canvas.h')}</h2>
+      <p className="hint" dangerouslySetInnerHTML={{ __html: t(locale, 'admin.canvas.body') }} />
+      <CanvasEditor initial={initial} userManifests={userManifests} locale={locale} />
     </div>
   );
 }

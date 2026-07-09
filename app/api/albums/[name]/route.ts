@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getRequiredUserId } from '@/lib/session';
 import { getAlbumStore, isUploadSupported, AlbumStoreError, type AlbumItem } from '@/lib/widgets/album-store';
+import { recordAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nam
       }
       throw err;
     }
+    recordAudit({
+      userId,
+      action: 'album.upload',
+      targetType: 'album',
+      targetId: name,
+      after: { filename: file.name || 'photo.jpg', size: file.size },
+    });
     return NextResponse.json({ ok: true, item });
   }
 
@@ -79,5 +87,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nam
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const items: AlbumItem[] = parsed.data.items.map((it) => ({ src: it.src, caption: it.caption }));
   await getAlbumStore().set(userId, name, items);
+  recordAudit({
+    userId,
+    action: 'album.save',
+    targetType: 'album',
+    targetId: name,
+    after: { count: items.length },
+  });
   return NextResponse.json({ ok: true, count: items.length });
+}
+
+/** Wipe an entire album. Replaces the photo list with `[]` so the disk /
+ *  vercel-blob / s3 stores can release any underlying objects via the
+ *  store-specific teardown (currently the URLs store keeps the list empty and
+ *  leaves previously-uploaded bytes as orphans — narrowing this is future
+ *  work; this handler mirrors what the editor exposes as "Clear album"). */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+  let userId: string;
+  try {
+    userId = await getRequiredUserId();
+  } catch {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  const { name } = await params;
+  if (!SegmentSchema.safeParse(name).success) return badSegment();
+  const existing = await getAlbumStore().list(userId, name);
+  await getAlbumStore().set(userId, name, []);
+  recordAudit({
+    userId,
+    action: 'album.delete',
+    targetType: 'album',
+    targetId: name,
+    before: { item_count: existing.length },
+  });
+  return NextResponse.json({ ok: true, cleared: existing.length });
 }

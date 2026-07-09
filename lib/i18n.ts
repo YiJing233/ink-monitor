@@ -1,6 +1,17 @@
 /**
  * Lightweight i18n. A dictionary per language, no extra deps. Locales are
  * stored in the `NEXT_LOCALE` cookie and propagated via middleware.
+ *
+ * Two helpers are exported for the application layer:
+ *   - `t(locale, key)`: dictionary lookup with English fallback.
+ *   - `resolveLocale(cookieValue, acceptLanguage)`: pick a locale from the
+ *     `NEXT_LOCALE` cookie first, then fall back to parsing Accept-Language.
+ *     Used by both server pages and API route handlers to pick the locale
+ *     for a request without each call site re-implementing the logic.
+ *
+ * Key naming: `namespace.section.suffix` (e.g. `admin.canvas.h`,
+ * `landing.tagline`). English is the canonical source; zh / ja mirror the
+ * same key set.
  */
 export type Locale = 'en' | 'zh' | 'ja';
 
@@ -15,6 +26,7 @@ export const DEFAULT_LOCALE: Locale = 'en';
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  // Landing (home page)
   'tagline': 'Your e-reader is a dashboard.',
   'lede': 'A B&W monitoring surface for token plans and stock watchlists. Drop your OpenAI, Anthropic or custom API key — see real-time usage on a Kindle or Xiaomi e-reader. Auto-refreshing, animated-free, account-bound.',
   'cta.signin': 'Sign in with GitHub',
@@ -49,6 +61,113 @@ const en: Dict = {
   'cli.p': 'For power users who\'d rather skip the web UI.',
   'cta.h': 'Get a dashboard on your e-reader in 60 seconds.',
   'footer.copy': '© Ink Monitor · MIT licensed',
+
+  // Admin — Canvas (drag-arrange widget grid)
+  'admin.canvas.h': 'Canvas',
+  'admin.canvas.body': 'Drag-arrange widgets. The right pane is a <strong>1:1 live preview</strong> on the e-ink device. Click <strong>Save</strong> to write your dashboard; <code>/display</code> renders it afterwards. After saving, "View real data" shows a 1:1 preview with your own data. Custom widgets (◇) come from the skill or <a href="/admin/market">Market</a>.<br /><strong>Each device stores its own layout + refresh cadence</strong>: switching device loads that device\'s saved layout, or seeds one by auto-reflowing the current one. The <strong>refresh override</strong> is a ceiling — "no lower than the manifest default refresh" — the lower you set, the more often it refreshes (more battery).',
+  'admin.canvas.label.dashboardName': 'Dashboard name',
+  'admin.canvas.label.device': 'Device',
+  'admin.canvas.label.refreshOverride': 'Per-device refresh override (s)',
+  'admin.canvas.placeholder.refreshOverride': 'Default (= min(manifest.refresh))',
+  'admin.canvas.label.add': 'Add',
+  'admin.canvas.title.builtin': 'built-in',
+  'admin.canvas.title.custom': 'custom/installed',
+  'admin.canvas.saving': 'Saving…',
+  'admin.canvas.save': 'Save',
+  'admin.canvas.viewRealData': 'View real data ↗',
+  'admin.canvas.status.saved': 'Saved {count} widgets · device {device}',
+  'admin.canvas.status.saveFailed': 'Save failed: {message}',
+  'admin.canvas.hint.layout': 'Layout · {cols}×{rows}',
+  'admin.canvas.hint.preview': 'E-ink 1:1 preview · {w}×{h}px (scale {pct}%, sampled data)',
+  'admin.canvas.preview.openFull': 'Open full size in new tab ↗',
+  'admin.canvas.title.remove': 'remove',
+  'admin.canvas.title.resize': 'resize',
+  'admin.canvas.previewFrame.title': 'e-ink preview',
+
+  // Admin — Market
+  'admin.market.h': 'Market',
+  'admin.market.body': 'Install widgets into your library; they\'ll show up in the <a href="/admin/canvas">Canvas</a> palette (marked ◇). <strong>Before install you\'ll see the domains the widget contacts, secrets it needs, and whether it writes to your data.</strong> You can also paste a share code to import someone else\'s widget.',
+  'admin.market.status.installed': 'Installed {name}',
+  'admin.market.status.installFailed': 'Install failed: {message}',
+  'admin.market.status.removed': 'Removed {id}',
+  'admin.market.status.removeFailed': 'Remove failed: {message}',
+  'admin.market.status.parseFailed': 'Could not parse: paste manifest JSON or share code',
+  'admin.market.status.invalidManifest': 'manifest is invalid (does not match IR schema)',
+  'admin.market.status.copied': 'Copied to clipboard',
+  'admin.market.status.copyFailed': 'Copy failed',
+  'admin.market.search.label': 'Search',
+  'admin.market.search.placeholder': 'Name, author, ID…',
+  'admin.market.category.label': 'Category',
+  'admin.market.category.all': 'All',
+  'admin.market.showInstalled': 'Show installed',
+  'admin.market.empty': 'No matching widgets.',
+  'admin.market.import.h': 'Import from share code / JSON',
+  'admin.market.import.placeholder': 'Paste manifest JSON or share code…',
+  'admin.market.import.parseAndInstall': 'Parse and install',
+  'admin.market.card.localVersion': 'local v{version}',
+  'admin.market.card.update': 'Update available',
+  'admin.market.card.installed': 'Installed',
+  'admin.market.card.uninstall': 'Uninstall',
+  'admin.market.card.install': 'Install',
+  'admin.market.card.share': 'Share code',
+  'admin.market.card.copyJson': 'Copy JSON',
+  'admin.market.prompt.h': 'Install "{name}"?',
+  'admin.market.prompt.egressWarning': '⚠ This widget did not declare egress — once installed it can make requests from your device to any public host on the internet (safe-fetch blocks private/link-local addresses, but any public site is reachable). Don\'t continue unless you trust the author.',
+  'admin.market.prompt.permissions': 'This widget will receive the following permissions:',
+  'admin.market.prompt.noAccess': 'No external access, no secrets required.',
+  'admin.market.prompt.secrets': 'Fill in the required secrets (leave blank to add later in settings)',
+  'admin.market.prompt.cancel': 'Cancel',
+  'admin.market.prompt.confirm': 'Confirm install',
+  'admin.market.error.installFailed': 'install failed',
+
+  // Admin — Albums
+  'admin.albums.h': 'Albums',
+  'admin.albums.body': 'The data source for the rotating-album widget (read here when a manifest picks the <code>album</code> source kind). URL lists work for a CDN-hosted album; uploads work for self-hosted. You can switch the two storage backends; the album you see is whatever <code>getAlbumStore()</code> currently returns.',
+  'admin.albums.label.albumName': 'Album name',
+  'admin.albums.section.url.h': 'URL',
+  'admin.albums.section.url.label.src': 'Image URL (http(s))',
+  'admin.albums.section.url.placeholder.src': 'https://…/photo.jpg',
+  'admin.albums.section.url.label.caption': 'Caption (optional)',
+  'admin.albums.section.url.add': 'Add',
+  'admin.albums.section.upload.h': 'Upload (self-hosted)',
+  'admin.albums.section.upload.label.file': 'Choose image (≤ 12MB)',
+  'admin.albums.section.upload.label.caption': 'Caption (optional)',
+  'admin.albums.section.upload.submit': 'Upload',
+  'admin.albums.section.list.h': 'Added ({count})',
+  'admin.albums.section.list.empty': 'This album is currently empty. Bind it to a manifest\'s <code>album</code> source to display it.',
+  'admin.albums.section.list.col.preview': 'Preview',
+  'admin.albums.section.list.col.source': 'Source',
+  'admin.albums.section.list.col.caption': 'Caption',
+  'admin.albums.section.list.delete': 'Del',
+  'admin.albums.status.saved': 'Saved {count} items',
+  'admin.albums.status.saveFailed': 'Save failed',
+  'admin.albums.status.uploaded': 'Uploaded {name}',
+  'admin.albums.status.uploadFailed': 'Upload failed: {message}',
+
+  // Admin — Notes widget editor (per-widget QR editor)
+  'admin.editNotes.h': 'Notes widget',
+  'admin.editNotes.editorH': 'Notes widget — edit',
+  'admin.editNotes.notFound': 'Widget <code>{id}</code> not found, or it doesn\'t belong to the current account.',
+  'admin.editNotes.backToCanvas': '← Back to Canvas',
+  'admin.editNotes.body': 'This is what you see after scanning the QR on the e-ink display. One note per line; blank lines are dropped automatically. Up to 50 lines · ≤ 200 chars per line.',
+  'admin.editNotes.field.widgetId': 'Widget id',
+  'admin.editNotes.field.manifest': 'Manifest',
+  'admin.editNotes.label.notes': 'Notes (one per line)',
+  'admin.editNotes.counter': '{count} / {max} lines · ≤ {len} chars per line',
+  'admin.editNotes.tooLong': ' · a line exceeds {len} chars — save will be rejected',
+  'admin.editNotes.saving': 'Saving…',
+  'admin.editNotes.save': 'Save',
+  'admin.editNotes.clear': 'Clear',
+  'admin.editNotes.title.clear': 'Clear (does not auto-save)',
+  'admin.editNotes.status.saved': 'Saved {count} lines',
+  'admin.editNotes.status.saveFailed': 'Save failed: {message}',
+
+  // API — diagnostics widget error messages
+  'api.diag.unauthorized': 'unauthorized',
+  'api.diag.validate.ok': 'ok',
+  'api.diag.validate.parseError': 'fail: manifest_json parse error: {message}',
+  'api.diag.validate.failed': 'fail: {message}',
+  'api.diag.invalidJson': 'invalid JSON',
 };
 
 const zh: Dict = {
@@ -86,6 +205,108 @@ const zh: Dict = {
   'cli.p': '不想用 Web UI？给极客准备的命令行。',
   'cta.h': '60 秒把仪表盘装进你的电纸书。',
   'footer.copy': '© Ink Monitor · MIT 许可证',
+
+  'admin.canvas.h': 'Canvas',
+  'admin.canvas.body': '拖拽排布小组件，右侧是水墨屏 <strong>1:1 实时预览</strong>。点 <strong>保存</strong> 写入你的看板，之后 <code>/display</code> 渲染它；保存后可「查看真实数据」用自己的数据 1:1 预览。自定义组件（◇）来自 skill 或 <a href="/admin/market">Market</a> 安装。<br /><strong>每个设备各存一份布局 + 刷新节奏</strong>：切换设备会载入该设备已存的布局，没有就从当前布局自动重排作为起点。<strong>刷新覆盖</strong>是「不低于 manifest 默认 refresh」的上限——你设得越低，刷得越勤（更费电）。',
+  'admin.canvas.label.dashboardName': '看板名',
+  'admin.canvas.label.device': '设备',
+  'admin.canvas.label.refreshOverride': '该设备刷新覆盖 (秒)',
+  'admin.canvas.placeholder.refreshOverride': '默认 (= min(manifest.refresh))',
+  'admin.canvas.label.add': '添加',
+  'admin.canvas.title.builtin': '内置',
+  'admin.canvas.title.custom': '自定义/已安装',
+  'admin.canvas.saving': '保存中…',
+  'admin.canvas.save': '保存',
+  'admin.canvas.viewRealData': '查看真实数据 ↗',
+  'admin.canvas.status.saved': '已保存 {count} 个组件 · 设备 {device}',
+  'admin.canvas.status.saveFailed': '保存失败: {message}',
+  'admin.canvas.hint.layout': '排布 · {cols}×{rows}',
+  'admin.canvas.hint.preview': '水墨屏 1:1 预览 · {w}×{h}px（缩放 {pct}%，采样数据）',
+  'admin.canvas.preview.openFull': '在新标签全尺寸打开 ↗',
+  'admin.canvas.title.remove': '删除',
+  'admin.canvas.title.resize': '调整大小',
+  'admin.canvas.previewFrame.title': '水墨屏预览',
+
+  'admin.market.h': 'Market',
+  'admin.market.body': '安装小组件到你的库，之后在 <a href="/admin/canvas">Canvas</a> 调色板里可用（标 ◇）。<strong>安装前会显示该组件要访问的域名、需要的密钥、是否写入你的数据</strong>。也可粘贴分享码导入他人的组件。',
+  'admin.market.status.installed': '已安装 {name}',
+  'admin.market.status.installFailed': '安装失败: {message}',
+  'admin.market.status.removed': '已移除 {id}',
+  'admin.market.status.removeFailed': '移除失败: {message}',
+  'admin.market.status.parseFailed': '无法解析：请粘贴 manifest JSON 或分享码',
+  'admin.market.status.invalidManifest': 'manifest 不合法（不符合 IR schema）',
+  'admin.market.status.copied': '已复制到剪贴板',
+  'admin.market.status.copyFailed': '复制失败',
+  'admin.market.search.label': '搜索',
+  'admin.market.search.placeholder': '名称、作者、ID…',
+  'admin.market.category.label': '分类',
+  'admin.market.category.all': '全部',
+  'admin.market.showInstalled': '显示已安装',
+  'admin.market.empty': '没有匹配的组件。',
+  'admin.market.import.h': '从分享码 / JSON 导入',
+  'admin.market.import.placeholder': '粘贴 manifest JSON 或分享码…',
+  'admin.market.import.parseAndInstall': '解析并安装',
+  'admin.market.card.localVersion': '本地 v{version}',
+  'admin.market.card.update': '可更新',
+  'admin.market.card.installed': '已安装',
+  'admin.market.card.uninstall': '移除',
+  'admin.market.card.install': '安装',
+  'admin.market.card.share': '分享码',
+  'admin.market.card.copyJson': '复制 JSON',
+  'admin.market.prompt.h': '安装「{name}」？',
+  'admin.market.prompt.egressWarning': '⚠ 该组件未声明 egress — 安装后它可以从你的设备向任意公网主机发起请求（safe-fetch 会阻止内网/链接本地地址，但仍可访问任何公开站点）。除非你信任作者，否则不要继续。',
+  'admin.market.prompt.permissions': '该组件将获得以下权限：',
+  'admin.market.prompt.noAccess': '无外部访问，无需密钥。',
+  'admin.market.prompt.secrets': '填写所需密钥（留空可稍后在设置里补）',
+  'admin.market.prompt.cancel': '取消',
+  'admin.market.prompt.confirm': '确认安装',
+  'admin.market.error.installFailed': '安装失败',
+
+  'admin.albums.h': 'Albums',
+  'admin.albums.body': '旋转相册的数据源（manifest 选 <code>album</code> source kind 时读这里）。URL 列表适合挂 CDN 相册；上传适合自托管。两种存储后端可切换；切换时你看到的相册就是当前 <code>getAlbumStore()</code> 的实现。',
+  'admin.albums.label.albumName': '相册名',
+  'admin.albums.section.url.h': 'URL',
+  'admin.albums.section.url.label.src': '图片 URL（http(s)）',
+  'admin.albums.section.url.placeholder.src': 'https://…/photo.jpg',
+  'admin.albums.section.url.label.caption': '说明（可选）',
+  'admin.albums.section.url.add': '添加',
+  'admin.albums.section.upload.h': '上传（自托管）',
+  'admin.albums.section.upload.label.file': '选择图片（≤ 12MB）',
+  'admin.albums.section.upload.label.caption': '说明（可选）',
+  'admin.albums.section.upload.submit': '上传',
+  'admin.albums.section.list.h': '已添加（{count}）',
+  'admin.albums.section.list.empty': '这个相册目前是空的。把它绑定到 manifest 的 <code>album</code> source 即可显示。',
+  'admin.albums.section.list.col.preview': '预览',
+  'admin.albums.section.list.col.source': '来源',
+  'admin.albums.section.list.col.caption': '说明',
+  'admin.albums.section.list.delete': '删',
+  'admin.albums.status.saved': '已保存 {count} 张',
+  'admin.albums.status.saveFailed': '保存失败',
+  'admin.albums.status.uploaded': '已上传 {name}',
+  'admin.albums.status.uploadFailed': '上传失败: {message}',
+
+  'admin.editNotes.h': 'Notes widget',
+  'admin.editNotes.editorH': 'Notes widget 编辑',
+  'admin.editNotes.notFound': '找不到 widget <code>{id}</code>，或它不属于当前账号。',
+  'admin.editNotes.backToCanvas': '← 返回 Canvas',
+  'admin.editNotes.body': '在水墨屏上扫码后看到的就是这里。每行一条笔记，空行会被自动丢弃。最多 50 行 · 每行 ≤ 200 字符。',
+  'admin.editNotes.field.widgetId': 'Widget id',
+  'admin.editNotes.field.manifest': 'Manifest',
+  'admin.editNotes.label.notes': '笔记（每行一条）',
+  'admin.editNotes.counter': '{count} / {max} 行 · 每行 ≤ {len} 字符',
+  'admin.editNotes.tooLong': ' · 有行超过 {len} 字符，保存将被拒绝',
+  'admin.editNotes.saving': '保存中…',
+  'admin.editNotes.save': '保存',
+  'admin.editNotes.clear': '清空',
+  'admin.editNotes.title.clear': '清空（不会自动保存）',
+  'admin.editNotes.status.saved': '已保存 {count} 行',
+  'admin.editNotes.status.saveFailed': '保存失败: {message}',
+
+  'api.diag.unauthorized': '未授权',
+  'api.diag.validate.ok': '通过',
+  'api.diag.validate.parseError': '失败: manifest_json 解析错误: {message}',
+  'api.diag.validate.failed': '失败: {message}',
+  'api.diag.invalidJson': 'JSON 不合法',
 };
 
 const ja: Dict = {
@@ -123,16 +344,154 @@ const ja: Dict = {
   'cli.p': 'Web UI をスキップしたいパワーユーザー向け。',
   'cta.h': '60秒で電子書籍リーダーにダッシュボードを。',
   'footer.copy': '© Ink Monitor · MIT ライセンス',
+
+  'admin.canvas.h': 'Canvas',
+  'admin.canvas.body': 'ウィジェットをドラッグして配置。右側は電子ペーパーでの <strong>1:1 ライブプレビュー</strong>。<strong>保存</strong> をクリックするとダッシュボードに書き込まれ、<code>/display</code> でレンダリングされます。保存後「実データを見る」で自分のデータを使って 1:1 プレビュー。カスタムウィジェット（◇）はスキルまたは <a href="/admin/market">Market</a> から入手します。<br /><strong>デバイスごとにレイアウトと更新頻度を保存</strong>：デバイスを切り替えると、そのデバイスの保存済みレイアウトが読み込まれ、なければ現在のレイアウトを自動リフローして初期化します。<strong>更新オーバーライド</strong>は「manifest のデフォルト refresh を下回らない」上限です — 低く設定するほど頻繁に更新されます（バッテリー消費増）。',
+  'admin.canvas.label.dashboardName': 'ダッシュボード名',
+  'admin.canvas.label.device': 'デバイス',
+  'admin.canvas.label.refreshOverride': 'このデバイスの更新オーバーライド (秒)',
+  'admin.canvas.placeholder.refreshOverride': 'デフォルト (= min(manifest.refresh))',
+  'admin.canvas.label.add': '追加',
+  'admin.canvas.title.builtin': '組み込み',
+  'admin.canvas.title.custom': 'カスタム/インストール済み',
+  'admin.canvas.saving': '保存中…',
+  'admin.canvas.save': '保存',
+  'admin.canvas.viewRealData': '実データを見る ↗',
+  'admin.canvas.status.saved': '{count} 件のウィジェットを保存しました · デバイス {device}',
+  'admin.canvas.status.saveFailed': '保存失敗: {message}',
+  'admin.canvas.hint.layout': '配置 · {cols}×{rows}',
+  'admin.canvas.hint.preview': '電子ペーパー 1:1 プレビュー · {w}×{h}px（スケール {pct}%、サンプルデータ）',
+  'admin.canvas.preview.openFull': '新しいタブで原寸大で開く ↗',
+  'admin.canvas.title.remove': '削除',
+  'admin.canvas.title.resize': 'リサイズ',
+  'admin.canvas.previewFrame.title': '電子ペーパープレビュー',
+
+  'admin.market.h': 'Market',
+  'admin.market.body': 'ウィジェットをライブラリにインストールすると、<a href="/admin/canvas">Canvas</a> のパレット（◇ マーク付き）で使えるようになります。<strong>インストール前に、ウィジェットが接続するドメイン、必要なシークレット、ユーザーデータへの書き込みの有無を確認できます。</strong>共有コードを貼り付けて他人のウィジェットをインポートすることもできます。',
+  'admin.market.status.installed': '{name} をインストールしました',
+  'admin.market.status.installFailed': 'インストール失敗: {message}',
+  'admin.market.status.removed': '{id} を削除しました',
+  'admin.market.status.removeFailed': '削除失敗: {message}',
+  'admin.market.status.parseFailed': '解析できません: manifest JSON または共有コードを貼り付けてください',
+  'admin.market.status.invalidManifest': 'manifest が不正です（IR スキーマに一致しません）',
+  'admin.market.status.copied': 'クリップボードにコピーしました',
+  'admin.market.status.copyFailed': 'コピー失敗',
+  'admin.market.search.label': '検索',
+  'admin.market.search.placeholder': '名前、作者、ID…',
+  'admin.market.category.label': 'カテゴリ',
+  'admin.market.category.all': 'すべて',
+  'admin.market.showInstalled': 'インストール済みを表示',
+  'admin.market.empty': '一致するウィジェットがありません。',
+  'admin.market.import.h': '共有コード / JSON からインポート',
+  'admin.market.import.placeholder': 'manifest JSON または共有コードを貼り付け…',
+  'admin.market.import.parseAndInstall': '解析してインストール',
+  'admin.market.card.localVersion': 'ローカル v{version}',
+  'admin.market.card.update': '更新可能',
+  'admin.market.card.installed': 'インストール済み',
+  'admin.market.card.uninstall': 'アンインストール',
+  'admin.market.card.install': 'インストール',
+  'admin.market.card.share': '共有コード',
+  'admin.market.card.copyJson': 'JSON をコピー',
+  'admin.market.prompt.h': '「{name}」をインストールしますか？',
+  'admin.market.prompt.egressWarning': '⚠ このウィジェットは egress を宣言していません — インストール後、デバイスから任意の公開ホストへリクエストを送ることができます（safe-fetch はプライベート/リンクローカルアドレスをブロックしますが、公開サイトには到達できます）。作者を信頼できない限り続行しないでください。',
+  'admin.market.prompt.permissions': 'このウィジェットには以下の権限が付与されます：',
+  'admin.market.prompt.noAccess': '外部アクセスなし、シークレット不要。',
+  'admin.market.prompt.secrets': '必要なシークレットを入力（空欄の場合、あとで設定で追加）',
+  'admin.market.prompt.cancel': 'キャンセル',
+  'admin.market.prompt.confirm': 'インストールを確認',
+  'admin.market.error.installFailed': 'インストールに失敗しました',
+
+  'admin.albums.h': 'Albums',
+  'admin.albums.body': '回転アルバム・ウィジェットのデータソース（manifest が <code>album</code> ソース種別を選んだときにここから読み込みます）。URL リストは CDN アルバム向き、アップロードはセルフホスト向き。2 種類のストレージバックエンドを切り替え可能；表示されるアルバムは現在の <code>getAlbumStore()</code> の実装です。',
+  'admin.albums.label.albumName': 'アルバム名',
+  'admin.albums.section.url.h': 'URL',
+  'admin.albums.section.url.label.src': '画像 URL（http(s)）',
+  'admin.albums.section.url.placeholder.src': 'https://…/photo.jpg',
+  'admin.albums.section.url.label.caption': 'キャプション（任意）',
+  'admin.albums.section.url.add': '追加',
+  'admin.albums.section.upload.h': 'アップロード（セルフホスト）',
+  'admin.albums.section.upload.label.file': '画像を選択（≤ 12MB）',
+  'admin.albums.section.upload.label.caption': 'キャプション（任意）',
+  'admin.albums.section.upload.submit': 'アップロード',
+  'admin.albums.section.list.h': '追加済み（{count}）',
+  'admin.albums.section.list.empty': 'このアルバムは現在空です。manifest の <code>album</code> ソースにバインドすると表示されます。',
+  'admin.albums.section.list.col.preview': 'プレビュー',
+  'admin.albums.section.list.col.source': 'ソース',
+  'admin.albums.section.list.col.caption': 'キャプション',
+  'admin.albums.section.list.delete': '削除',
+  'admin.albums.status.saved': '{count} 件を保存しました',
+  'admin.albums.status.saveFailed': '保存失敗',
+  'admin.albums.status.uploaded': '{name} をアップロードしました',
+  'admin.albums.status.uploadFailed': 'アップロード失敗: {message}',
+
+  'admin.editNotes.h': 'Notes widget',
+  'admin.editNotes.editorH': 'Notes widget — 編集',
+  'admin.editNotes.notFound': 'ウィジェット <code>{id}</code> が見つからないか、現在のアカウントに属していません。',
+  'admin.editNotes.backToCanvas': '← Canvas に戻る',
+  'admin.editNotes.body': '電子ペーパーで QR をスキャンした後に表示されるのはここです。1 行 1 ノート、空行は自動的に破棄されます。最大 50 行 · 1 行 ≤ 200 文字。',
+  'admin.editNotes.field.widgetId': 'Widget id',
+  'admin.editNotes.field.manifest': 'Manifest',
+  'admin.editNotes.label.notes': 'ノート（1 行 1 件）',
+  'admin.editNotes.counter': '{count} / {max} 行 · 1 行 ≤ {len} 文字',
+  'admin.editNotes.tooLong': ' · {len} 文字を超える行があります — 保存は拒否されます',
+  'admin.editNotes.saving': '保存中…',
+  'admin.editNotes.save': '保存',
+  'admin.editNotes.clear': 'クリア',
+  'admin.editNotes.title.clear': 'クリア（自動保存しません）',
+  'admin.editNotes.status.saved': '{count} 行を保存しました',
+  'admin.editNotes.status.saveFailed': '保存失敗: {message}',
+
+  'api.diag.unauthorized': '未認証',
+  'api.diag.validate.ok': '正常',
+  'api.diag.validate.parseError': '失敗: manifest_json の解析エラー: {message}',
+  'api.diag.validate.failed': '失敗: {message}',
+  'api.diag.invalidJson': 'JSON が不正です',
 };
 
 const dicts: Record<Locale, Dict> = { en, zh, ja };
 
-export function t(locale: Locale, key: string): string {
-  return dicts[locale]?.[key] || dicts.en[key] || key;
+/**
+ * Dictionary lookup. Falls back to English, then to the raw key, so a
+ * missing translation never throws — it just renders the placeholder.
+ *
+ * Supports `{name}` placeholders, e.g. `t('en', 'admin.canvas.status.saved', { count: 3, device: 'kindle-pw' })`.
+ */
+export function t(
+  locale: Locale,
+  key: string,
+  vars?: Record<string, string | number>,
+): string {
+  const raw = dicts[locale]?.[key] || dicts.en[key] || key;
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, (_, k) => {
+    const v = vars[k];
+    return v == null ? `{${k}}` : String(v);
+  });
 }
 
 export function getLocaleFromCookie(cookieValue: string | null | undefined): Locale {
   if (!cookieValue) return DEFAULT_LOCALE;
   if (cookieValue === 'en' || cookieValue === 'zh' || cookieValue === 'ja') return cookieValue as Locale;
+  return DEFAULT_LOCALE;
+}
+
+/**
+ * Resolve a request's preferred locale. `NEXT_LOCALE` cookie wins (explicit
+ * user choice via the locale switcher). When the cookie is unset or the
+ * default 'en', we honor a `zh` / `ja` Accept-Language prefix so first-time
+ * visitors with a Chinese/Japanese browser get a localized experience
+ * without having to click the switcher. Returns DEFAULT_LOCALE ('en') for
+ * unknown / empty values — the function never throws.
+ */
+export function resolveLocale(cookieValue: string | null | undefined, acceptLanguage: string | null | undefined): Locale {
+  const fromCookie = getLocaleFromCookie(cookieValue);
+  if (fromCookie !== DEFAULT_LOCALE) return fromCookie;
+  // Prefer the highest-priority lang tag's ISO-639-1 prefix. We split on
+  // commas (the q-value entries) and use the first one's leading 2 letters,
+  // which is the most common format and avoids false positives like "az"
+  // (Azerbaijani) or "de" sharing letters with a target locale.
+  const first = (acceptLanguage || '').toLowerCase().split(',')[0]?.trim() || '';
+  if (first === 'zh' || first.startsWith('zh-')) return 'zh';
+  if (first === 'ja' || first.startsWith('ja-')) return 'ja';
   return DEFAULT_LOCALE;
 }

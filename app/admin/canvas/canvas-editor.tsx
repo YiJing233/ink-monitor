@@ -36,6 +36,7 @@ import { DEVICE_IDS, DEVICES, getDevice, type DeviceId } from '@/lib/widgets/dev
 import { autoReflow, clampToGrid, hasCollision, resolveFamily, type Placement } from '@/lib/widgets/placement';
 import { BUILTIN_LIST } from '@/lib/widgets/registry';
 import type { Manifest } from '@/lib/widgets/ir';
+import { t, type Locale } from '@/lib/i18n';
 
 export interface EditorItem {
   /** Widget instance id (== `widgets.id` / `Placement.widgetId`). Identity. */
@@ -64,7 +65,15 @@ function famWH(f: string): { w: number; h: number } {
   return { w, h };
 }
 
-export default function CanvasEditor({ initial, userManifests }: { initial: EditorInitial; userManifests: Manifest[] }) {
+export default function CanvasEditor({
+  initial,
+  userManifests,
+  locale,
+}: {
+  initial: EditorInitial;
+  userManifests: Manifest[];
+  locale: Locale;
+}) {
   const [dashboardId, setDashboardId] = useState<string | null>(initial.dashboardId);
   const [name, setName] = useState(initial.name);
   const [deviceId, setDeviceId] = useState<DeviceId>(initial.device);
@@ -233,9 +242,9 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_overrides: refreshOverrides }),
       });
-      setStatus(`已保存 ${j2.count} 个组件 · 设备 ${DEVICES[deviceId].label}`);
+      setStatus(t(locale, 'admin.canvas.status.saved', { count: j2.count, device: DEVICES[deviceId].label }));
     } catch (e: any) {
-      setStatus('保存失败: ' + (e?.message || String(e)));
+      setStatus(t(locale, 'admin.canvas.status.saveFailed', { message: e?.message || String(e) }));
     } finally {
       setSaving(false);
     }
@@ -247,13 +256,13 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
       <div className="panel" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label className="row" style={{ gap: 6 }}>
           <span className="label" style={{ margin: 0 }}>
-            看板名
+            {t(locale, 'admin.canvas.label.dashboardName')}
           </span>
           <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: 160 }} />
         </label>
         <label className="row" style={{ gap: 6 }}>
           <span className="label" style={{ margin: 0 }}>
-            设备
+            {t(locale, 'admin.canvas.label.device')}
           </span>
           <select value={deviceId} onChange={(e) => changeDevice(e.target.value as DeviceId)}>
             {DEVICE_IDS.map((id) => (
@@ -265,14 +274,14 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         </label>
         <label className="row" style={{ gap: 6 }}>
           <span className="label" style={{ margin: 0 }}>
-            该设备刷新覆盖 (秒)
+            {t(locale, 'admin.canvas.label.refreshOverride')}
           </span>
           <input
             type="number"
             min={15}
             max={86400}
             value={refreshOverrides[deviceId] ?? ''}
-            placeholder="默认 (= min(manifest.refresh))"
+            placeholder={t(locale, 'admin.canvas.placeholder.refreshOverride')}
             onChange={(e) => {
               const v = e.target.value.trim();
               setRefreshOverrides((prev) => {
@@ -287,21 +296,26 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         </label>
         <span style={{ borderLeft: '2px solid #000', height: 22 }} />
         <span className="label" style={{ margin: 0 }}>
-          添加
+          {t(locale, 'admin.canvas.label.add')}
         </span>
         {paletteList.map((e) => (
-          <button key={e.manifest.id} className="btn" onClick={() => addWidget(e.manifest.id)} title={e.builtin ? '内置' : '自定义/已安装'}>
+          <button
+            key={e.manifest.id}
+            className="btn"
+            onClick={() => addWidget(e.manifest.id)}
+            title={e.builtin ? t(locale, 'admin.canvas.title.builtin') : t(locale, 'admin.canvas.title.custom')}
+          >
             + {e.manifest.name}
             {e.builtin ? '' : ' ◇'}
           </button>
         ))}
         <span style={{ flex: 1 }} />
         <button className="btn primary" onClick={save} disabled={saving}>
-          {saving ? '保存中…' : '保存'}
+          {saving ? t(locale, 'admin.canvas.saving') : t(locale, 'admin.canvas.save')}
         </button>
         {dashboardId && (
           <a className="btn" href={`/preview?dashboard=${dashboardId}`} target="_blank" rel="noreferrer">
-            查看真实数据 ↗
+            {t(locale, 'admin.canvas.viewRealData')}
           </a>
         )}
       </div>
@@ -315,7 +329,7 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         {/* LEFT — arrangement grid */}
         <div>
           <div className="hint" style={{ marginBottom: 6 }}>
-            排布 · {cols}×{rows}
+            {t(locale, 'admin.canvas.hint.layout', { cols, rows })}
           </div>
           <div
             style={{
@@ -367,7 +381,7 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
                       e.stopPropagation();
                       removeWidget(it.widgetInstanceId);
                     }}
-                    title="remove"
+                    title={t(locale, 'admin.canvas.title.remove')}
                     style={{
                       position: 'absolute',
                       top: 2,
@@ -386,7 +400,7 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
                   </button>
                   <div
                     onPointerDown={(e) => startDrag(e, it, 'resize')}
-                    title="resize"
+                    title={t(locale, 'admin.canvas.title.resize')}
                     style={{
                       position: 'absolute',
                       right: 0,
@@ -408,11 +422,15 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
         {/* RIGHT — 1:1 device preview */}
         <div>
           <div className="hint" style={{ marginBottom: 6 }}>
-            水墨屏 1:1 预览 · {device.width}×{device.height}px（缩放 {Math.round(scale * 100)}%，采样数据）
+            {t(locale, 'admin.canvas.hint.preview', {
+              w: device.width,
+              h: device.height,
+              pct: Math.round(scale * 100),
+            })}
           </div>
           <div style={{ width: PREVIEW_W, height: device.height * scale, overflow: 'hidden', border: '4px solid #000', background: '#fff' }}>
             <iframe
-              title="e-ink preview"
+              title={t(locale, 'admin.canvas.previewFrame.title')}
               src={previewSrc}
               width={device.width}
               height={device.height}
@@ -421,7 +439,7 @@ export default function CanvasEditor({ initial, userManifests }: { initial: Edit
           </div>
           <div style={{ marginTop: 8 }}>
             <a className="btn" href={previewSrc} target="_blank" rel="noreferrer">
-              在新标签全尺寸打开 ↗
+              {t(locale, 'admin.canvas.preview.openFull')}
             </a>
           </div>
         </div>

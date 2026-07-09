@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getRequiredUserId } from '@/lib/session';
 import { getWidget } from '@/lib/db';
 import { safeJson } from '@/lib/safe-json';
+import { resolveLocale, t } from '@/lib/i18n';
 import EditNotesClient from './edit-notes-client';
 
 export const dynamic = 'force-dynamic';
@@ -38,13 +40,16 @@ export default async function EditNotesPage({ params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const widget = getWidget(userId, id);
+  const c = await cookies();
+  const h = await headers();
+  const locale = resolveLocale(c.get('NEXT_LOCALE')?.value || null, h.get('accept-language'));
   if (!widget) {
     return (
       <div>
-        <h2 style={{ marginTop: 0 }}>Notes widget</h2>
-        <div className="err">找不到 widget <code>{id}</code>，或它不属于当前账号。</div>
+        <h2 style={{ marginTop: 0 }}>{t(locale, 'admin.editNotes.h')}</h2>
+        <div className="err" dangerouslySetInnerHTML={{ __html: t(locale, 'admin.editNotes.notFound', { id }) }} />
         <Link className="btn" href="/admin/canvas">
-          ← 返回 Canvas
+          {t(locale, 'admin.editNotes.backToCanvas')}
         </Link>
       </div>
     );
@@ -78,28 +83,25 @@ export default async function EditNotesPage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Notes widget 编辑</h2>
-      <p className="hint">
-        在水墨屏上扫码后看到的就是这里。每行一条笔记，空行会被自动丢弃。
-        最多 50 行 · 每行 ≤ 200 字符。
-      </p>
+      <h2 style={{ marginTop: 0 }}>{t(locale, 'admin.editNotes.editorH')}</h2>
+      <p className="hint">{t(locale, 'admin.editNotes.body')}</p>
 
       <div className="panel">
         <div className="field">
-          <span className="label">Widget id</span>
+          <span className="label">{t(locale, 'admin.editNotes.field.widgetId')}</span>
           <code>{id}</code>
         </div>
         <div className="field">
-          <span className="label">Manifest</span>{' '}
+          <span className="label">{t(locale, 'admin.editNotes.field.manifest')}</span>{' '}
           <strong>{manifestName}</strong> <span className="hint">({manifestId})</span>
         </div>
       </div>
 
-      <EditNotesClient widgetId={id} initialLines={initialLines} />
+      <EditNotesClient widgetId={id} initialLines={initialLines} locale={locale} />
 
       <div style={{ marginTop: 16 }}>
         <Link className="btn" href="/admin/canvas">
-          ← 返回 Canvas
+          {t(locale, 'admin.editNotes.backToCanvas')}
         </Link>
       </div>
     </div>

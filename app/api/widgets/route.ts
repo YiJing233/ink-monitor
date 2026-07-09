@@ -3,6 +3,7 @@ import { getRequiredUserId } from '@/lib/session';
 import { listWidgets, insertWidget } from '@/lib/db';
 import { randomId } from '@/lib/utils';
 import { safeValidateManifest } from '@/lib/widgets/ir';
+import { recordAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,13 @@ export async function POST(req: NextRequest) {
     user_id: userId,
     manifest_json: JSON.stringify(result.data),
     config_json: JSON.stringify(body?.config ?? {}),
+  });
+  recordAudit({
+    userId,
+    action: 'widget.create',
+    targetType: 'widget',
+    targetId: id,
+    after: { manifest_id: result.data.id, config: body?.config ?? {} },
   });
   return NextResponse.json({ id, ok: true });
 }

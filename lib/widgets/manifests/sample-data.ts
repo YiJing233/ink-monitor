@@ -142,6 +142,57 @@ export const stravaSample = {
   type: 'Run',
 };
 
+/** Phase 2 non-usage built-in: the post-`select` shape for the Spotify
+ *  `/v1/me/player/currently-playing` endpoint. Mirrors what the manifest's
+ *  JSONPath `item.name` / `item.artists[0].name` / `item.album.name` /
+ *  `is_playing` projection produces against a now-playing payload. The
+ *  http source itself is not exercised at preview time — we don't want to
+ *  hit Spotify's API in tests or galleries. */
+export const spotifySample = {
+  title: 'Bohemian Rhapsody',
+  artist: 'Queen',
+  album: 'A Night at the Opera',
+  is_playing: true,
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the Algolia HN
+ *  `/api/v1/search?tags=front_page` endpoint. The manifest projects
+ *  `hits[0].title` / `hits[0].points` for the headline tile and
+ *  `hits[*].title` for the 4x4 list layout. `url` is included for parity
+ *  with the manifest's `select` map, even though the layout doesn't bind
+ *  it directly today (Phase 2 TODO: hyperlink the headline). */
+export const newsHeadlinesSample = {
+  title: 'Show HN: I rewrote X in 500 lines of Rust',
+  url: 'https://example.com/rewrote-x-in-rust',
+  points: 412,
+  headlines: [
+    'Show HN: I rewrote X in 500 lines of Rust',
+    'Why the new e-ink displays are finally good enough',
+    'The cost of premature optimization in 2026',
+    'A field guide to declarative widget IRs',
+    'On keeping a personal e-ink dashboard alive for a year',
+  ],
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the Mastodon
+ *  `/api/v1/accounts/{userId}/statuses?limit=5` endpoint. Mirrors what
+ *  the manifest's JSONPath `[0].content` / `[0].account.display_name` /
+ *  `[0].created_at` / `[*].content` projection produces. `content` is
+ *  the raw HTML the Mastodon API returns (the renderer is expected to
+ *  strip tags before drawing — Phase 2 TODO). */
+export const mastodonSample = {
+  content: '<p>Shipping a new widget today!</p>',
+  account: 'Ada Lovelace',
+  created: '2026-07-09T08:42:18.000Z',
+  statuses: [
+    '<p>Shipping a new widget today!</p>',
+    '<p>E-ink dashboards are an exercise in restraint.</p>',
+    '<p>Reading the Mastodon API docs. Surprisingly pleasant.</p>',
+    '<p>Filed a bug against the IR schema. PR incoming.</p>',
+    '<p>Coffee + JSONPath = a good morning.</p>',
+  ],
+};
+
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
     name: 'OpenAI',
@@ -182,4 +233,7 @@ export const SAMPLE_DATA: Record<string, unknown> = {
   'github-releases': githubReleasesSample,
   'ticker-tape': tickerTapeSample,
   strava: stravaSample,
+  'spotify-now-playing': spotifySample,
+  'news-headlines': newsHeadlinesSample,
+  'mastodon-feed': mastodonSample,
 };

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredUserId } from '@/lib/session';
 import { listUserManifests, upsertUserManifest } from '@/lib/db';
 import { safeValidateManifest } from '@/lib/widgets/ir';
+import { recordAudit } from '@/lib/audit';
 
 /**
  * The user's manifest library — what shows up in the canvas palette beyond the
@@ -47,5 +48,12 @@ export async function POST(req: NextRequest) {
   }
   const origin = body?.origin === 'installed' ? 'installed' : 'custom';
   upsertUserManifest(userId, result.data.id, JSON.stringify(result.data), origin);
+  recordAudit({
+    userId,
+    action: 'manifest.install',
+    targetType: 'manifest',
+    targetId: result.data.id,
+    after: { origin },
+  });
   return NextResponse.json({ ok: true, manifest_id: result.data.id });
 }

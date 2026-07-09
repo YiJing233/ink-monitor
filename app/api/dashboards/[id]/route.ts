@@ -18,6 +18,7 @@ import { safeValidateManifest, type Manifest } from '@/lib/widgets/ir';
 import { hasCollision, type Placement } from '@/lib/widgets/placement';
 import { safeJson } from '@/lib/safe-json';
 import { randomId } from '@/lib/utils';
+import { recordAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +93,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (parsed.data.refresh_overrides !== undefined) patch.refresh_overrides_json = JSON.stringify(parsed.data.refresh_overrides);
 
   updateDashboard(userId, id, patch);
+  recordAudit({
+    userId,
+    action: 'dashboard.update',
+    targetType: 'dashboard',
+    targetId: id,
+    // Summarize what changed -- layouts/refresh_overrides are large JSON, so
+    // record only the shape (per-device counts + override keys) instead of
+    // the full payload to keep the audit table readable.
+    after: {
+      name: parsed.data.name !== undefined,
+      base_device: parsed.data.base_device !== undefined,
+      display_order: parsed.data.display_order !== undefined,
+      layouts_devices: parsed.data.layouts ? Object.keys(parsed.data.layouts) : undefined,
+      refresh_overrides_devices: parsed.data.refresh_overrides
+        ? Object.keys(parsed.data.refresh_overrides)
+        : undefined,
+    },
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -212,6 +231,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'save failed' }, { status: 500 });
   }
 
+  // Snapshot just the manifest ids we instantiated (no config / placement
+  // payload) — enough to answer "what lives on this dashboard now" without
+  // bloating the audit table with potentially-large layout JSON.
+  recordAudit({
+    userId,
+    action: 'dashboard.save',
+    targetType: 'dashboard',
+    targetId: id,
+    after: {
+      device: parsed.data.device,
+      count: placements.length,
+      manifest_ids: widgetPayloads.map((w) => w.manifest.id),
+    },
+  });
+
   return NextResponse.json({ ok: true, count: placements.length });
 }
 
@@ -223,7 +257,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  if (!getDashboard(userId, id)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const existing = getDashboard(userId, id);
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   deleteDashboard(userId, id);
+  recordAudit({
+    userId,
+    action: 'dashboard.delete',
+    targetType: 'dashboard',
+    targetId: id,
+    before: { name: existing.name, base_device: existing.base_device },
+  });
   return NextResponse.json({ ok: true });
 }

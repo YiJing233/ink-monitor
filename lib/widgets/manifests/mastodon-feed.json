@@ -1,0 +1,44 @@
+{
+  "v": 1,
+  "id": "mastodon-feed",
+  "version": "0.1.0",
+  "name": "Mastodon Feed",
+  "description": "Latest statuses from a Mastodon account. The user supplies `instance` (host) and `userId` (numeric account id) in per-instance config; the http URL is templated accordingly at fetch time. The install flow prompts for a `MASTODON_TOKEN` (Bearer; the standard `/oauth/token` flow is documented in the widget skill). The source calls `GET /api/v1/accounts/{userId}/statuses?limit=5` and projects the most-recent status's `content` / `account.display_name` / `created_at`, plus a flat array of recent status contents for the list layouts. Egress is intentionally empty: the instance host is templated from user config, so the install prompt surfaces the `EGRESS_UNRESTRICTED` notice (same pattern as the `rss` widget).",
+  "source": {
+    "kind": "http",
+    "url": "https://{{instance}}/api/v1/accounts/{{userId}}/statuses?limit=5",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "MASTODON_TOKEN" },
+    "select": {
+      "content": "[0].content",
+      "account": "[0].account.display_name",
+      "created": "[0].created_at",
+      "statuses": "[*].content"
+    }
+  },
+  "families": ["1x2", "2x2"],
+  "layout": {
+    "1x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "account" }, "size": "title" },
+        { "t": "list", "items": { "$": "statuses" }, "max": 3 }
+      ]
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "account" }, "size": "title" },
+        { "t": "text", "value": { "$": "created" }, "size": "caption" },
+        { "t": "divider" },
+        { "t": "list", "items": { "$": "statuses" }, "max": 5 }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": [],
+    "secrets": ["MASTODON_TOKEN"],
+    "writes": false
+  },
+  "refresh": 600
+}

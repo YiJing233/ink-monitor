@@ -1,0 +1,48 @@
+{
+  "v": 1,
+  "id": "news-headlines",
+  "version": "0.1.0",
+  "name": "News — Hacker News Front Page",
+  "description": "Top headline from Hacker News via the Algolia HN search API. The public `/api/v1/search?tags=front_page` endpoint needs no secret (rate-limited per IP, plenty for a slow-refresh e-ink tile). The http source projects the first hit's `title` / `url` / `points` and — for the 4x4 list layout — the title of every front-page hit. 1x2 stacks the headline above the points count; 2x2 mirrors 1x2 with a slightly larger headline; 4x4 shows the top headline plus the next several as a `list`.",
+  "source": {
+    "kind": "http",
+    "url": "https://hn.algolia.com/api/v1/search?tags=front_page",
+    "method": "GET",
+    "select": {
+      "title": "hits[0].title",
+      "url": "hits[0].url",
+      "points": "hits[0].points",
+      "headlines": "hits[*].title"
+    }
+  },
+  "families": ["1x2", "2x2", "4x4"],
+  "layout": {
+    "1x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "text", "value": { "$": "points" }, "prefix": "▲ " }
+      ]
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "text", "value": { "$": "points" }, "prefix": "▲ " }
+      ]
+    },
+    "4x4": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "divider" },
+        { "t": "list", "items": { "$": "headlines" }, "max": 10 }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["hn.algolia.com"],
+    "writes": false
+  },
+  "refresh": 900
+}

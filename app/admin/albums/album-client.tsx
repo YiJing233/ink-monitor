@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { t, type Locale } from '@/lib/i18n';
 
 interface Item {
   src: string;
@@ -17,10 +18,12 @@ export default function AlbumClient({
   album,
   initialItems,
   uploadSupported,
+  locale,
 }: {
   album: string;
   initialItems: Item[];
   uploadSupported: boolean;
+  locale: Locale;
 }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [status, setStatus] = useState('');
@@ -64,9 +67,9 @@ export default function AlbumClient({
     });
     if (r.ok) {
       setItems(next);
-      setStatus(`已保存 ${next.length} 张`);
+      setStatus(t(locale, 'admin.albums.status.saved', { count: next.length }));
     } else {
-      setStatus('保存失败');
+      setStatus(t(locale, 'admin.albums.status.saveFailed'));
     }
   }
 
@@ -80,12 +83,12 @@ export default function AlbumClient({
     const r = await fetch(`/api/albums/${encodeURIComponent(album)}`, { method: 'POST', body: fd });
     const j = await r.json();
     if (r.ok) {
-      setStatus(`已上传 ${f.name}`);
+      setStatus(t(locale, 'admin.albums.status.uploaded', { name: f.name }));
       setCaption('');
       if (fileRef.current) fileRef.current.value = '';
       await refresh();
     } else {
-      setStatus('上传失败: ' + (j.error || r.status));
+      setStatus(t(locale, 'admin.albums.status.uploadFailed', { message: j.error || r.status }));
     }
   }
 
@@ -93,7 +96,7 @@ export default function AlbumClient({
     <div>
       <div className="panel" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div className="field" style={{ flex: 1, minWidth: 220 }}>
-          <label className="label">相册名</label>
+          <label className="label">{t(locale, 'admin.albums.label.albumName')}</label>
           <input value={album} disabled style={{ width: '100%' }} />
         </div>
       </div>
@@ -101,50 +104,55 @@ export default function AlbumClient({
       {status && <div className="ok">{status}</div>}
 
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>URL</h3>
+        <h3 style={{ marginTop: 0 }}>{t(locale, 'admin.albums.section.url.h')}</h3>
         <div className="field">
-          <label className="label">图片 URL（http(s)）</label>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/photo.jpg" style={{ width: '100%' }} />
+          <label className="label">{t(locale, 'admin.albums.section.url.label.src')}</label>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={t(locale, 'admin.albums.section.url.placeholder.src')}
+            style={{ width: '100%' }}
+          />
         </div>
         <div className="field">
-          <label className="label">说明（可选）</label>
+          <label className="label">{t(locale, 'admin.albums.section.url.label.caption')}</label>
           <input value={caption} onChange={(e) => setCaption(e.target.value)} style={{ width: '100%' }} />
         </div>
         <button className="btn primary" onClick={addUrl}>
-          添加
+          {t(locale, 'admin.albums.section.url.add')}
         </button>
       </div>
 
       {uploadSupported && (
         <div className="panel">
-          <h3 style={{ marginTop: 0 }}>上传（自托管）</h3>
+          <h3 style={{ marginTop: 0 }}>{t(locale, 'admin.albums.section.upload.h')}</h3>
           <form onSubmit={uploadFile}>
             <div className="field">
-              <label className="label">选择图片（≤ 12MB）</label>
+              <label className="label">{t(locale, 'admin.albums.section.upload.label.file')}</label>
               <input ref={fileRef} type="file" accept="image/*" />
             </div>
             <div className="field">
-              <label className="label">说明（可选）</label>
+              <label className="label">{t(locale, 'admin.albums.section.upload.label.caption')}</label>
               <input value={caption} onChange={(e) => setCaption(e.target.value)} style={{ width: '100%' }} />
             </div>
             <button className="btn primary" type="submit">
-              上传
+              {t(locale, 'admin.albums.section.upload.submit')}
             </button>
           </form>
         </div>
       )}
 
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>已添加（{items.length}）</h3>
+        <h3 style={{ marginTop: 0 }}>{t(locale, 'admin.albums.section.list.h', { count: items.length })}</h3>
         {items.length === 0 ? (
-          <div className="hint">这个相册目前是空的。把它绑定到 manifest 的 <code>album</code> source 即可显示。</div>
+          <div className="hint" dangerouslySetInnerHTML={{ __html: t(locale, 'admin.albums.section.list.empty') }} />
         ) : (
           <table>
             <thead>
               <tr>
-                <th style={{ width: 60 }}></th>
-                <th>来源</th>
-                <th>说明</th>
+                <th style={{ width: 60 }}>{t(locale, 'admin.albums.section.list.col.preview')}</th>
+                <th>{t(locale, 'admin.albums.section.list.col.source')}</th>
+                <th>{t(locale, 'admin.albums.section.list.col.caption')}</th>
                 <th style={{ width: 60 }}></th>
               </tr>
             </thead>
@@ -161,7 +169,7 @@ export default function AlbumClient({
                   <td>{it.caption || ''}</td>
                   <td>
                     <button className="btn danger" onClick={() => remove(i)}>
-                      删
+                      {t(locale, 'admin.albums.section.list.delete')}
                     </button>
                   </td>
                 </tr>

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { cookies, headers } from 'next/headers';
 import { getRequiredUserId } from '@/lib/session';
 import { listWidgets, listDashboards, latestWidgetResolve } from '@/lib/db';
 import { safeValidateManifest } from '@/lib/widgets/ir';
 import { safeJson } from '@/lib/safe-json';
+import { resolveLocale, t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +23,17 @@ export const dynamic = 'force-dynamic';
  *
  * Auth: requires an authenticated session (`getRequiredUserId`).
  *
+ * The `validate` field is human-facing text (e.g. "fail: <reason>") and is
+ * localized to the request's `NEXT_LOCALE` cookie / Accept-Language. The
+ * exact reason comes from Zod, so we don't translate that; the prefix and
+ * the "ok" sentinel are translated. Consumers that need a stable machine
+ * code should switch to a separate `validateCode` field — out of scope for
+ * now (this is a debug endpoint, not a public API).
+ *
  * Response shape:
  *   {
  *     userId,
+ *     locale,
  *     widgets: [
  *       { instanceId, manifestId, version, validate, source, refresh,
  *         lastResolveMs, lastError, lastResolvedAt }
@@ -46,7 +56,22 @@ export async function GET() {
   try {
     userId = await getRequiredUserId();
   } catch {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'unauthorized' },
+      { status: 401, headers: { 'content-language': 'en' } },
+    );
+  }
+
+  // Resolve the request's locale for the human-facing `validate` strings.
+  // We don't fail the request if cookie/headers are unavailable — fall back
+  // to the default English dictionary.
+  let locale: ReturnType<typeof resolveLocale> = 'en';
+  try {
+    const c = await cookies();
+    const h = await headers();
+    locale = resolveLocale(c.get('NEXT_LOCALE')?.value || null, h.get('accept-language'));
+  } catch {
+    /* use 'en' default */
   }
 
   const widgets = listWidgets(userId).map((w) => {
@@ -55,7 +80,7 @@ export async function GET() {
     try {
       parsed = JSON.parse(w.manifest_json);
     } catch (e) {
-      parseErr = e instanceof Error ? e.message : 'invalid JSON';
+      parseErr = e instanceof Error ? e.message : t(locale, 'api.diag.invalidJson');
     }
 
     let validate: string;
@@ -65,11 +90,11 @@ export async function GET() {
     let refresh: number | null = null;
 
     if (parseErr) {
-      validate = `fail: manifest_json parse error: ${parseErr}`;
+      validate = t(locale, 'api.diag.validate.parseError', { message: parseErr });
     } else {
       const r = safeValidateManifest(parsed);
       if (r.success) {
-        validate = 'ok';
+        validate = t(locale, 'api.diag.validate.ok');
         manifestId = r.data.id;
         version = r.data.version ?? null;
         source = r.data.source.kind;
@@ -82,7 +107,7 @@ export async function GET() {
         const flat = r.error.flatten() as { formErrors: string[]; fieldErrors: Record<string, string[]> };
         const firstField = Object.values(flat.fieldErrors).find((arr) => arr && arr.length);
         const reason = (firstField && firstField[0]) || flat.formErrors[0] || r.error.message;
-        validate = `fail: ${reason}`;
+        validate = t(locale, 'api.diag.validate.failed', { message: reason });
         // Best-effort fields even on failure: pull what we can from the raw
         // object so the response is still useful for triage.
         const raw = parsed as { id?: unknown; version?: unknown; source?: { kind?: unknown }; refresh?: unknown };
@@ -131,5 +156,8 @@ export async function GET() {
     return { id: d.id, name: d.name, widgetCount: ids.size, devices };
   });
 
-  return NextResponse.json({ userId, widgets, dashboards });
+  return NextResponse.json(
+    { userId, locale, widgets, dashboards },
+    { headers: { 'content-language': locale } },
+  );
 }

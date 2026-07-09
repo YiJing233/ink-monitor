@@ -6,6 +6,7 @@ import { safeValidateManifest } from '@/lib/widgets/ir';
 import { describeCapabilities, requiredSecrets } from '@/lib/widgets/capabilities';
 import { EGRESS_UNRESTRICTED } from '@/lib/widgets/registry-meta';
 import { isNewer } from '@/lib/widgets/version';
+import { t, type Locale } from '@/lib/i18n';
 
 export interface MarketEntry {
   manifest: Manifest;
@@ -23,7 +24,15 @@ function decodeShare(s: string): string {
   return decodeURIComponent(escape(atob(s)));
 }
 
-export default function MarketClient({ gallery, installedIds }: { gallery: MarketEntry[]; installedIds: string[] }) {
+export default function MarketClient({
+  gallery,
+  installedIds,
+  locale,
+}: {
+  gallery: MarketEntry[];
+  installedIds: string[];
+  locale: Locale;
+}) {
   const [installed, setInstalled] = useState<Set<string>>(new Set(installedIds));
   const [installedVersions, setInstalledVersions] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
@@ -89,13 +98,13 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
       }
       const r = await fetch('/api/manifests', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ manifest, origin }) });
       const j = await r.json();
-      if (!r.ok) throw new Error(typeof j.error === 'string' ? j.error : '安装失败');
+      if (!r.ok) throw new Error(typeof j.error === 'string' ? j.error : t(locale, 'admin.market.error.installFailed'));
       setInstalled((prev) => new Set(prev).add(manifest.id));
       if (manifest.version) setInstalledVersions((prev) => ({ ...prev, [manifest.id]: manifest.version! }));
-      setStatus(`已安装 ${manifest.name}`);
+      setStatus(t(locale, 'admin.market.status.installed', { name: manifest.name }));
       setPending(null);
     } catch (e: any) {
-      setStatus('安装失败: ' + (e?.message || String(e)));
+      setStatus(t(locale, 'admin.market.status.installFailed', { message: e?.message || String(e) }));
     }
   }
 
@@ -111,9 +120,9 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
         const { [id]: _gone, ...rest } = prev;
         return rest;
       });
-      setStatus(`已移除 ${id}`);
+      setStatus(t(locale, 'admin.market.status.removed', { id }));
     } catch (e: any) {
-      setStatus('移除失败: ' + (e?.message || String(e)));
+      setStatus(t(locale, 'admin.market.status.removeFailed', { message: e?.message || String(e) }));
     }
   }
 
@@ -127,13 +136,13 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
       try {
         json = JSON.parse(decodeShare(text));
       } catch {
-        setStatus('无法解析：请粘贴 manifest JSON 或分享码');
+        setStatus(t(locale, 'admin.market.status.parseFailed'));
         return;
       }
     }
     const res = safeValidateManifest(json);
     if (!res.success) {
-      setStatus('manifest 不合法（不符合 IR schema）');
+      setStatus(t(locale, 'admin.market.status.invalidManifest'));
       return;
     }
     beginInstall(res.data, 'custom');
@@ -142,9 +151,9 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setStatus('已复制到剪贴板');
+      setStatus(t(locale, 'admin.market.status.copied'));
     } catch {
-      setStatus('复制失败');
+      setStatus(t(locale, 'admin.market.status.copyFailed'));
     }
   }
 
@@ -160,16 +169,21 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
       <div className="panel" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label className="row" style={{ gap: 6, flex: 1, minWidth: 220 }}>
           <span className="label" style={{ margin: 0 }}>
-            搜索
+            {t(locale, 'admin.market.search.label')}
           </span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="名称、作者、ID…" style={{ width: '100%' }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t(locale, 'admin.market.search.placeholder')}
+            style={{ width: '100%' }}
+          />
         </label>
         <label className="row" style={{ gap: 6 }}>
           <span className="label" style={{ margin: 0 }}>
-            分类
+            {t(locale, 'admin.market.category.label')}
           </span>
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="all">全部</option>
+            <option value="all">{t(locale, 'admin.market.category.all')}</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -180,7 +194,7 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
         <label className="row" style={{ gap: 6 }}>
           <input type="checkbox" checked={showInstalled} onChange={(e) => setShowInstalled(e.target.checked)} />
           <span className="label" style={{ margin: 0 }}>
-            显示已安装
+            {t(locale, 'admin.market.showInstalled')}
           </span>
         </label>
         <span className="hint" style={{ marginLeft: 'auto' }}>
@@ -204,24 +218,29 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
             onUninstall={() => uninstall(entry.manifest.id)}
             onShare={() => copy(encodeShare(JSON.stringify(entry.manifest)))}
             onCopyJson={() => copy(JSON.stringify(entry.manifest, null, 2))}
+            locale={locale}
           />
         ))}
       </div>
 
-      {filtered.length === 0 && <div className="hint" style={{ marginTop: 16 }}>没有匹配的组件。</div>}
+      {filtered.length === 0 && (
+        <div className="hint" style={{ marginTop: 16 }}>
+          {t(locale, 'admin.market.empty')}
+        </div>
+      )}
 
       {/* Import */}
-      <h3 style={{ marginTop: 24 }}>从分享码 / JSON 导入</h3>
+      <h3 style={{ marginTop: 24 }}>{t(locale, 'admin.market.import.h')}</h3>
       <textarea
         value={importText}
         onChange={(e) => setImportText(e.target.value)}
-        placeholder="粘贴 manifest JSON 或分享码…"
+        placeholder={t(locale, 'admin.market.import.placeholder')}
         rows={4}
         style={{ width: '100%', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 }}
       />
       <div style={{ marginTop: 8 }}>
         <button className="btn primary" onClick={doImport}>
-          解析并安装
+          {t(locale, 'admin.market.import.parseAndInstall')}
         </button>
       </div>
 
@@ -233,6 +252,7 @@ export default function MarketClient({ gallery, installedIds }: { gallery: Marke
           onSecretChange={(name, value) => setSecretInputs((prev) => ({ ...prev, [name]: value }))}
           onConfirm={confirmInstall}
           onCancel={() => setPending(null)}
+          locale={locale}
         />
       )}
     </div>
@@ -249,6 +269,7 @@ function GalleryCard({
   onUninstall,
   onShare,
   onCopyJson,
+  locale,
 }: {
   entry: MarketEntry;
   installed: boolean;
@@ -259,6 +280,7 @@ function GalleryCard({
   onUninstall: () => void;
   onShare: () => void;
   onCopyJson: () => void;
+  locale: Locale;
 }) {
   const { manifest, icon, category, author } = entry;
   const notices = useMemo(() => describeCapabilities(manifest), [manifest]);
@@ -275,10 +297,12 @@ function GalleryCard({
         {category && <span className="pill">{category}</span>}
         {author && <span style={{ color: '#000' }}>· @{author}</span>}
         {manifest.version && <span>· v{manifest.version}</span>}
-        {localVersion && installed && <span style={{ color: '#000' }}>· 本地 v{localVersion}</span>}
+        {localVersion && installed && (
+          <span style={{ color: '#000' }}>· {t(locale, 'admin.market.card.localVersion', { version: localVersion })}</span>
+        )}
         {updateAvailable && (
           <span className="pill" style={{ background: '#000', color: '#fff' }}>
-            可更新
+            {t(locale, 'admin.market.card.update')}
           </span>
         )}
       </div>
@@ -300,27 +324,27 @@ function GalleryCard({
       <div className="row" style={{ gap: 6, marginTop: 'auto' }}>
         {updateAvailable ? (
           <button className="btn primary" onClick={onUpdate}>
-            更新
+            {t(locale, 'admin.market.card.update')}
           </button>
         ) : installed ? (
           <>
             <span className="pill" style={{ background: '#000', color: '#fff' }}>
-              已安装
+              {t(locale, 'admin.market.card.installed')}
             </span>
             <button className="btn danger" onClick={onUninstall}>
-              移除
+              {t(locale, 'admin.market.card.uninstall')}
             </button>
           </>
         ) : (
           <button className="btn primary" onClick={onInstall}>
-            安装
+            {t(locale, 'admin.market.card.install')}
           </button>
         )}
         <button className="btn" onClick={onShare}>
-          分享码
+          {t(locale, 'admin.market.card.share')}
         </button>
         <button className="btn" onClick={onCopyJson}>
-          复制 JSON
+          {t(locale, 'admin.market.card.copyJson')}
         </button>
       </div>
     </div>
@@ -333,12 +357,14 @@ function PermissionPrompt({
   onSecretChange,
   onConfirm,
   onCancel,
+  locale,
 }: {
   manifest: Manifest;
   secretInputs: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  locale: Locale;
 }) {
   const notices = describeCapabilities(manifest);
   const secrets = requiredSecrets(manifest);
@@ -358,7 +384,7 @@ function PermissionPrompt({
       onClick={onCancel}
     >
       <div className="panel" style={{ maxWidth: 460, width: '100%', background: '#fff', margin: 0 }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>安装「{manifest.name}」？</h3>
+        <h3 style={{ marginTop: 0 }}>{t(locale, 'admin.market.prompt.h', { name: manifest.name })}</h3>
         {hasUnrestrictedEgress && (
           <div
             role="alert"
@@ -371,22 +397,21 @@ function PermissionPrompt({
               marginBottom: 8,
             }}
           >
-            ⚠ 该组件未声明 egress — 安装后它可以从你的设备向任意公网主机发起请求（safe-fetch
-            会阻止内网/链接本地地址，但仍可访问任何公开站点）。除非你信任作者，否则不要继续。
+            {t(locale, 'admin.market.prompt.egressWarning')}
           </div>
         )}
-        <p style={{ fontSize: 13 }}>该组件将获得以下权限：</p>
+        <p style={{ fontSize: 13 }}>{t(locale, 'admin.market.prompt.permissions')}</p>
         <ul style={{ fontSize: 13, paddingLeft: 18 }}>
           {notices.map((n, i) => (
             <li key={i} style={n.kind === EGRESS_UNRESTRICTED ? { color: '#b58900', fontWeight: 600 } : undefined}>
               <strong>{n.kind}</strong> &mdash; {n.text}
             </li>
           ))}
-          {notices.length === 0 && <li>无外部访问，无需密钥。</li>}
+          {notices.length === 0 && <li>{t(locale, 'admin.market.prompt.noAccess')}</li>}
         </ul>
         {secrets.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <div className="label">填写所需密钥（留空可稍后在设置里补）</div>
+            <div className="label">{t(locale, 'admin.market.prompt.secrets')}</div>
             {secrets.map((s) => (
               <div className="field" key={s}>
                 <label className="label">{s}</label>
@@ -403,10 +428,10 @@ function PermissionPrompt({
         )}
         <div className="row" style={{ gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
           <button className="btn" onClick={onCancel}>
-            取消
+            {t(locale, 'admin.market.prompt.cancel')}
           </button>
           <button className="btn primary" onClick={onConfirm}>
-            确认安装
+            {t(locale, 'admin.market.prompt.confirm')}
           </button>
         </div>
       </div>

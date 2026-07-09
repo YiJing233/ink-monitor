@@ -1,13 +1,18 @@
+import { cookies, headers } from 'next/headers';
 import { getCurrentUserId } from '@/lib/session';
 import { listUserManifests } from '@/lib/db';
 import { BUILTIN_LIST } from '@/lib/widgets/registry';
 import { safeValidateManifest, type Manifest } from '@/lib/widgets/ir';
+import { resolveLocale, t } from '@/lib/i18n';
 import MarketClient, { type MarketEntry } from './market-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MarketPage() {
   const userId = await getCurrentUserId();
+  const c = await cookies();
+  const h = await headers();
+  const locale = resolveLocale(c.get('NEXT_LOCALE')?.value || null, h.get('accept-language'));
   const installedIds = userId ? listUserManifests(userId).map((r) => r.manifest_id) : [];
 
   // Curated remote gallery (validated server-side; invalid entries dropped).
@@ -33,12 +38,9 @@ export default async function MarketPage() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Market</h2>
-      <p className="hint">
-        安装小组件到你的库，之后在 <a href="/admin/canvas">Canvas</a> 调色板里可用（标 ◇）。
-        <strong>安装前会显示该组件要访问的域名、需要的密钥、是否写入你的数据</strong>。也可粘贴分享码导入他人的组件。
-      </p>
-      <MarketClient gallery={gallery} installedIds={installedIds} />
+      <h2 style={{ marginTop: 0 }}>{t(locale, 'admin.market.h')}</h2>
+      <p className="hint" dangerouslySetInnerHTML={{ __html: t(locale, 'admin.market.body') }} />
+      <MarketClient gallery={gallery} installedIds={installedIds} locale={locale} />
     </div>
   );
 }
