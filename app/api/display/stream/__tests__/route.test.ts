@@ -113,7 +113,7 @@ describe('startDisplayStream — poll loop and cleanup', () => {
     vi.advanceTimersByTime(4000);
     const patches = sent.filter(([e]) => e === 'patch');
     expect(patches.length).toBe(1);
-    expect(patches[0][1]).toEqual({ widgetId: 'w1', ts: expect.any(Number) });
+    expect(patches[0][1]).toEqual({ instanceId: 'w1', ts: expect.any(Number) });
 
     // After stop(), no more events should fire even if we advance further.
     handle.stop();
@@ -190,7 +190,7 @@ describe('startDisplayStream — poll loop and cleanup', () => {
     vi.advanceTimersByTime(2000);
     const ids = sent
       .filter(([e]) => e === 'patch')
-      .map(([, d]) => (d as { widgetId: string }).widgetId);
+      .map(([, d]) => (d as { instanceId: string }).instanceId);
     expect(ids).toContain('w1');
     expect(ids).toContain('w2');
 
@@ -203,7 +203,7 @@ describe('startDisplayStream — poll loop and cleanup', () => {
     vi.advanceTimersByTime(1000);
     const idsAfter = sent
       .filter(([e]) => e === 'patch')
-      .map(([, d]) => (d as { widgetId: string }).widgetId);
+      .map(([, d]) => (d as { instanceId: string }).instanceId);
     expect(idsAfter).toEqual(['w1']);
 
     handle.stop();

@@ -11,7 +11,16 @@ if (!existsSync(DATA_DIR)) {
 
 let _db: Database.Database | null = null;
 
+// Test-only override for the DB singleton. When set, `getDb()` returns this
+// instead of opening the production DB file. Production code never sets this —
+// it's only honored via the underscore-prefixed `_setDbForTesting()` helper
+// below, which the test suite calls to point `getDb()` at an in-memory SQLite
+// so the widget_resolve_log helpers can be exercised without touching
+// `data/monitor.db`.
+let _dbOverride: Database.Database | null = null;
+
 export function getDb(): Database.Database {
+  if (_dbOverride) return _dbOverride;
   if (_db) return _db;
   const db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -19,6 +28,17 @@ export function getDb(): Database.Database {
   initSchema(db);
   _db = db;
   return db;
+}
+
+/**
+ * Replace the cached DB singleton for the lifetime of the current process.
+ * Pass `null` to restore normal behavior. Intended for tests; production code
+ * must not call this. Resets the cached singleton so the next `getDb()` either
+ * returns the override (if non-null) or re-opens the production DB file.
+ */
+export function _setDbForTesting(db: Database.Database | null): void {
+  _dbOverride = db;
+  _db = null;
 }
 
 /**
@@ -213,6 +233,23 @@ function initSchema(db: Database.Database) {
       UNIQUE (user_id, manifest_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    -- Per-widget instrumentation: one row per resolveSource call for a widget
+    -- instance, capturing how long it took and (when it threw) the error.
+    -- Backs the lastResolveMs / lastError / lastResolvedAt fields on
+    -- GET /api/diagnostics/widgets so an operator can see whether a widget
+    -- is healthy without re-running it. Append-only; the index serves the
+    -- "most recent row for (user, widget)" read pattern.
+    CREATE TABLE IF NOT EXISTS widget_resolve_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      widget_id TEXT NOT NULL,
+      ms INTEGER NOT NULL,
+      error TEXT,
+      ts INTEGER NOT NULL  -- unix ms
+    );
+    CREATE INDEX IF NOT EXISTS idx_widget_resolve_log_user_widget_ts
+      ON widget_resolve_log(user_id, widget_id, ts DESC);
   `);
 
   // Unique index on (user_id, symbol) for stocks
@@ -644,4 +681,33 @@ export function upsertUserManifest(userId: string, manifestId: string, manifestJ
 
 export function deleteUserManifest(userId: string, manifestId: string): void {
   getDb().prepare('DELETE FROM user_manifests WHERE user_id = ? AND manifest_id = ?').run(userId, manifestId);
+}
+
+// --- Widget resolve log (per-instrumentation history) ------------------------
+//
+// The Source layer writes one row per resolveSource call via logWidgetResolve;
+// the diagnostics route reads the most recent row via latestWidgetResolve.
+// Errors are persisted as-is (string from `err.message`); success rows are
+// written with `error: null` so the schema captures both outcomes uniformly.
+
+export interface WidgetResolveRow {
+  ms: number;
+  error: string | null;
+  ts: number; // unix ms
+}
+
+export function logWidgetResolve(userId: string, widgetId: string, ms: number, error: string | null): void {
+  getDb()
+    .prepare('INSERT INTO widget_resolve_log (user_id, widget_id, ms, error, ts) VALUES (?, ?, ?, ?, ?)')
+    .run(userId, widgetId, ms, error, Date.now());
+}
+
+export function latestWidgetResolve(userId: string, widgetId: string): WidgetResolveRow | null {
+  const row = getDb()
+    .prepare(
+      'SELECT ms, error, ts FROM widget_resolve_log WHERE user_id = ? AND widget_id = ? ORDER BY ts DESC, id DESC LIMIT 1',
+    )
+    .get(userId, widgetId) as { ms: number; error: string | null; ts: number } | undefined;
+  if (!row) return null;
+  return { ms: row.ms, error: row.error, ts: row.ts };
 }

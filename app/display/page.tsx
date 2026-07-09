@@ -61,6 +61,7 @@ export default async function DisplayPage({ searchParams }: { searchParams: Prom
       const { resolveDashboard } = await import('@/lib/widgets/source');
       const { DashboardCanvas } = await import('@/lib/widgets/render/DashboardCanvas');
       const { SoftRefreshScript } = await import('./soft-refresh');
+      const { LiveStreamScript } = await import('./stream-script');
       const { deviceId, items, refreshOverrideSec } = await resolveDashboard(userId, dashboards[0]);
       const cands = items.map((i) => i.manifest.refresh).filter((n): n is number => typeof n === 'number' && n > 0);
       const minFromManifests = cands.length ? Math.min(...cands) : 300;

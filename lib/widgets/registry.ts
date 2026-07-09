@@ -16,6 +16,9 @@ import weather from './manifests/weather.json';
 import rss from './manifests/rss.json';
 import calendar from './manifests/calendar.json';
 import notes from './manifests/notes.json';
+import githubReleases from './manifests/github-releases.json';
+import tickerTape from './manifests/ticker-tape.json';
+import strava from './manifests/strava.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -29,6 +32,9 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   rss: validateManifest(rss),
   calendar: validateManifest(calendar),
   notes: validateManifest(notes),
+  'github-releases': validateManifest(githubReleases),
+  'ticker-tape': validateManifest(tickerTape),
+  strava: validateManifest(strava),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);

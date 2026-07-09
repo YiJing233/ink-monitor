@@ -23,9 +23,11 @@ vi.mock('@/lib/session', () => ({
 
 const listWidgets = vi.fn();
 const listDashboards = vi.fn();
+const latestWidgetResolve = vi.fn();
 vi.mock('@/lib/db', () => ({
   listWidgets: (uid: string) => listWidgets(uid),
   listDashboards: (uid: string) => listDashboards(uid),
+  latestWidgetResolve: (uid: string, wid: string) => latestWidgetResolve(uid, wid),
 }));
 
 import { GET } from '../route';
@@ -113,6 +115,8 @@ describe('GET /api/diagnostics/widgets', () => {
     getRequiredUserId.mockResolvedValueOnce('user-1');
     listWidgets.mockReturnValueOnce([]);
     listDashboards.mockReturnValueOnce([FAKE_DASHBOARD]);
+    // No widgets means latestWidgetResolve is never called.
+    latestWidgetResolve.mockReturnValue(null);
     const res = await GET();
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -193,5 +197,44 @@ describe('GET /api/diagnostics/widgets', () => {
     expect(bad.lastResolveMs).toBeNull();
     expect(bad.lastError).toBeNull();
     expect(bad.lastResolvedAt).toBeNull();
+  });
+
+  it('surfaces last resolve timing + error from widget_resolve_log', async () => {
+    getRequiredUserId.mockResolvedValueOnce('user-1');
+    listWidgets.mockReturnValueOnce([widgetRow('w-ok', VALID_MANIFEST)]);
+    listDashboards.mockReturnValueOnce([]);
+    // The Source layer has run twice for this widget: once successfully
+    // (123ms), then once with an HTTP error. latestWidgetResolve returns the
+    // newer row. The route must:
+    //   - call latestWidgetResolve(userId, widget.id) per widget
+    //   - pass ms / error through verbatim
+    //   - format the unix-ms ts as an ISO-8601 string in lastResolvedAt
+    latestWidgetResolve.mockReturnValueOnce({
+      ms: 250,
+      error: 'HTTP 503',
+      ts: Date.UTC(2026, 6, 9, 12, 0, 0), // 2026-07-09T12:00:00.000Z
+    });
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      widgets: {
+        instanceId: string;
+        lastResolveMs: number | null;
+        lastError: string | null;
+        lastResolvedAt: string | null;
+      }[];
+    };
+
+    // The route must look up resolve history per (user, widget).
+    expect(latestWidgetResolve).toHaveBeenCalledTimes(1);
+    expect(latestWidgetResolve).toHaveBeenCalledWith('user-1', 'w-ok');
+
+    expect(body.widgets).toHaveLength(1);
+    const w = body.widgets[0];
+    expect(w.instanceId).toBe('w-ok');
+    expect(w.lastResolveMs).toBe(250);
+    expect(w.lastError).toBe('HTTP 503');
+    expect(w.lastResolvedAt).toBe('2026-07-09T12:00:00.000Z');
   });
 });

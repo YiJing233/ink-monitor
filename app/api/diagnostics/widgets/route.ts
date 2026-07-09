@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRequiredUserId } from '@/lib/session';
-import { listWidgets, listDashboards } from '@/lib/db';
+import { listWidgets, listDashboards, latestWidgetResolve } from '@/lib/db';
 import { safeValidateManifest } from '@/lib/widgets/ir';
 import { safeJson } from '@/lib/safe-json';
 
@@ -10,12 +10,14 @@ export const dynamic = 'force-dynamic';
  * GET /api/diagnostics/widgets
  *
  * Owner-only diagnostic view of the current user's widget platform state.
- * Reports each widget instance with its manifest validation status, plus a
- * summary of every dashboard and the devices that have a layout for it.
+ * Reports each widget instance with its manifest validation status, the most
+ * recent source-resolution timing + outcome (sourced from `widget_resolve_log`),
+ * plus a summary of every dashboard and the devices that have a layout for it.
  *
  * Designed for the admin / debug surface: a single payload that answers
- * "what do I have, is each manifest valid, and where is it placed?"
- * without the caller having to fan-out to /api/widgets and /api/dashboards.
+ * "what do I have, is each manifest valid, did its last resolve succeed, and
+ * where is it placed?" without the caller having to fan-out to /api/widgets
+ * and /api/dashboards.
  *
  * Auth: requires an authenticated session (`getRequiredUserId`).
  *
@@ -31,10 +33,13 @@ export const dynamic = 'force-dynamic';
  *     ]
  *   }
  *
- * `lastResolveMs` / `lastError` / `lastResolvedAt` are placeholders for a
- * future `widget_resolve_log` table (per-instrumentation history of source
- * resolution). They are always `null` for now; the schema is reserved so the
- * client contract doesn't have to shift when the table lands.
+ * `lastResolveMs` / `lastError` / `lastResolvedAt` come from the
+ * `widget_resolve_log` table (written by the Source layer each time
+ * `resolveSource` runs for a widget instance). They are `null` when no
+ * resolve has been recorded yet — e.g. a widget that was never placed on a
+ * dashboard, or one whose manifest was corrupt at validate time and so never
+ * reached the source layer. `lastResolvedAt` is an ISO-8601 string for easy
+ * client rendering.
  */
 export async function GET() {
   let userId: string;
@@ -88,6 +93,12 @@ export async function GET() {
       }
     }
 
+    // Pull the most recent source-resolution row for this widget instance
+    // (per-instrumentation history lives in `widget_resolve_log`). `null`
+    // means we've never resolved it — typical for an orphan widget that
+    // isn't placed on any dashboard, or whose manifest was corrupt at
+    // validate time and so never reached the source layer.
+    const last = latestWidgetResolve(userId, w.id);
     return {
       instanceId: w.id,
       manifestId,
@@ -95,9 +106,9 @@ export async function GET() {
       validate,
       source,
       refresh,
-      lastResolveMs: null,
-      lastError: null,
-      lastResolvedAt: null,
+      lastResolveMs: last?.ms ?? null,
+      lastError: last?.error ?? null,
+      lastResolvedAt: last ? new Date(last.ts).toISOString() : null,
     };
   });
 

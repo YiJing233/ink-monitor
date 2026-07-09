@@ -1,0 +1,40 @@
+{
+  "v": 1,
+  "id": "strava",
+  "version": "0.1.0",
+  "name": "Strava",
+  "description": "Most-recent Strava activity. The install flow prompts for a `STRAVA_TOKEN` (Bearer; the public Strava `POST /oauth/token` exchange is documented in the widget skill). The http source calls `GET /athlete/activities?per_page=1` and projects the first entry's `name` / `distance` / `type`. 1x1 is the distance as a meters bignum with the activity type as the subtitle; 2x2 adds the activity title underneath.",
+  "source": {
+    "kind": "http",
+    "url": "https://www.strava.com/api/v3/athlete/activities?per_page=1",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "STRAVA_TOKEN" },
+    "select": {
+      "name": "[0].name",
+      "distance": "[0].distance",
+      "type": "[0].type"
+    }
+  },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": {
+      "t": "bignum",
+      "value": { "$": "distance" },
+      "unit": "m",
+      "sub": { "$": "type" }
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "distance" }, "unit": "m" },
+        { "t": "text", "value": { "$": "name" } }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["www.strava.com"],
+    "secrets": ["STRAVA_TOKEN"],
+    "writes": false
+  },
+  "refresh": 1800
+}

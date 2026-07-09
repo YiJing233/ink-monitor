@@ -1,0 +1,52 @@
+{
+  "v": 1,
+  "id": "ticker-tape",
+  "version": "0.1.0",
+  "name": "Crypto ticker",
+  "description": "Live USD spot + 24h change for Bitcoin + Ethereum from CoinGecko's free `/simple/price` endpoint. No secret needed (the public tier is rate-limited per IP but is sufficient for a refresh-once-per-minute e-ink tile). The http source's JSONPath `select` maps `bitcoin.usd` → `btc_price`, `bitcoin.usd_24h_change` → `btc_change`, etc. — so the layout binds to a flat shape (`btc_*`, `eth_*`) regardless of the upstream's nested-object form. 4x1 is a single row of BTC, 4x2 is a column of two rows (BTC over ETH).",
+  "source": {
+    "kind": "http",
+    "url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true",
+    "method": "GET",
+    "select": {
+      "btc_price": "bitcoin.usd",
+      "btc_change": "bitcoin.usd_24h_change",
+      "eth_price": "ethereum.usd",
+      "eth_change": "ethereum.usd_24h_change"
+    }
+  },
+  "families": ["4x1", "4x2"],
+  "layout": {
+    "4x1": {
+      "t": "row",
+      "children": [
+        { "t": "text", "value": { "$": "btc_price" }, "size": "title", "mono": true, "prefix": "BTC " },
+        { "t": "text", "value": { "$": "btc_change" }, "mono": true, "prefix": "24h " }
+      ]
+    },
+    "4x2": {
+      "t": "col",
+      "children": [
+        {
+          "t": "row",
+          "children": [
+            { "t": "text", "value": { "$": "btc_price" }, "size": "title", "mono": true, "prefix": "BTC " },
+            { "t": "text", "value": { "$": "btc_change" }, "mono": true, "prefix": "24h " }
+          ]
+        },
+        {
+          "t": "row",
+          "children": [
+            { "t": "text", "value": { "$": "eth_price" }, "size": "title", "mono": true, "prefix": "ETH " },
+            { "t": "text", "value": { "$": "eth_change" }, "mono": true, "prefix": "24h " }
+          ]
+        }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["api.coingecko.com"],
+    "writes": false
+  },
+  "refresh": 300
+}

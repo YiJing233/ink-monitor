@@ -199,7 +199,7 @@ app/admin/canvas/**     palette = built-ins + library (◇); per-device layouts;
 
 ## Status
 
-**Wired now (Phase 0 complete + hardening) — `tsc --noEmit` clean, `pnpm test` green:**
+**Wired now (Phase 0–3 complete + hardening) — `tsc --noEmit` clean, `pnpm test` green:**
 
 - **Persistence** — `dashboards` / `widgets` / `widget_secrets` / `owned_state`
   tables + CRUD (`lib/db.ts`), and `/api/dashboards`, `/api/widgets`,
@@ -213,7 +213,9 @@ app/admin/canvas/**     palette = built-ins + library (◇); per-device layouts;
   cap, `capabilities.egress` allowlist. Unit-tested.
 - **Image pipeline** — `lib/widgets/dither.ts` (Atkinson/FS + dependency-free
   PNG encoder, unit-tested) behind `/api/asset/dither` (uses `sharp` to decode;
-  degrades to a redirect if `sharp` isn't built).
+  degrades to a redirect if `sharp` isn't built). The encoder emits a 1-bit
+  grayscale PNG for binary Atkinson output — same fidelity, 8x smaller than
+  the 8-bit grayscale it was previously writing.
 - **Canvas editor persistence** — `/admin/canvas` loads your saved dashboard;
   Save creates/updates it via `POST /api/dashboards` + `PUT /api/dashboards/[id]`
   (atomic rebuild of widget instances + this device's layout, plus orphan GC).
@@ -280,24 +282,63 @@ app/admin/canvas/**     palette = built-ins + library (◇); per-device layouts;
   (registry metadata, not manifest). Market UI: search box, category filter,
   hide-installed toggle, count, and per-card icon + category pill.
   Self-host disk cache added to the dither route.
+- **Eight built-in manifests.** `api-usage`, `stocks-table`, `todo-lark`,
+  `gallery` (Phase 0 reference widgets), plus the Phase 1 non-usage
+  built-ins `clock`, `countdown`, `weather`, `rss`. Each is a JSON file
+  under `lib/widgets/manifests/`, validated by `ManifestSchema` at registry
+  load (failures are loud, not silent), with a matching `SAMPLE_DATA`
+  fixture so the gallery preview always shows "now".
+- **Vercel Blob + S3 album backends.** `vercel-blob` and `s3` adapters in
+  `lib/widgets/album-store.ts` plug in via `ALBUM_STORE=vercel-blob|s3`,
+  auto-detected on Vercel from `BLOB_READ_WRITE_TOKEN` /
+  `S3_BUCKET + S3_REGION`. R2 / MinIO work via `S3_ENDPOINT` +
+  `forcePathStyle`. The two SDKs ship as `optionalDependencies` and are
+  dynamic-imported so they don't force the install.
+- **Signed gallery auth.** `MARKET_REGISTRY_TOKEN` (Bearer) or
+  `MARKET_REGISTRY_HMAC_KEY` (HMAC over `METHOD\nURL\nTS` with a 5-min
+  replay window) opt-in flips `/api/market` from anonymous to
+  authenticated; the client-safe `MARKET_AUTH_REQUIRED` mode list in
+  `lib/widgets/registry-meta.ts` lets the admin Market UI render a
+  "🔒 private registry" indicator without pulling server crypto into the
+  bundle.
+- **Composite `(user_id, updated_at DESC)` indexes** on `dashboards`,
+  `widgets`, and `user_manifests` — keeps the per-user "most recently
+  changed" queries O(log n) as the tables grow.
+- **`lib/safe-json.ts` warn.** Single `safeJson(text, label)` helper with a
+  label-aware `console.warn` on parse failure (e.g.
+  `dashboards.layouts_json`), so a log search points at the corrupt column
+  instead of a bare `SyntaxError`.
+- **Dev-time registry assert.** `lib/widgets/registry.ts` cross-checks every
+  `BUILTIN_MANIFESTS` id against `SAMPLE_DATA` at module load and warns
+  (without throwing) on a miss — TypeScript can't catch that two-records
+  mismatch, so the dev terminal does.
+- **CI hardening.** `.github/workflows/ci.yml` now runs on a Node 22 / 24
+  matrix with a 10-min per-job timeout, uploads `vitest-report.json` and
+  the coverage dir as artifacts on every run, and restores the
+  `build` + `eink-smoke` jobs (the production Next.js build and a real
+  `/display` smoke render) as required checks.
 
 **Still to do (post-roadmap):**
 
 1. **Hardening (non-blocking)** — undici IP pinning to close DNS-rebinding
    TOCTOU in `safe-fetch`; per-dashboard `gcWidgets` scope narrowing;
    e-ink UA list extension (Kobo/PocketBook/Onyx BOOX); secure-default
-   `capabilities.egress` for manifests that omit it; 1-bit PNG output
-   from the dither pipeline. See the code review report for the full list.
+   `capabilities.egress` for manifests that omit it. See the code review
+   report for the full list.
+2. **Phase 4 (optional)** — sandboxed code sources for the long tail
+   (self-host only).
 
 ---
 
 ## Roadmap
 
-- **Phase 0** *(this pass + persistence)* — IR, renderer, device/grid model,
-  canvas, re-express provider/stock cards as manifests.
-- **Phase 1** — declarative `http` source + 3–4 non-usage built-ins
-  (clock, weather, countdown, RSS).
-- **Phase 2** — the authoring skill loop + manifest validation + preview render.
-- **Phase 3** — gallery/market + install permissions + sharing.
+- **Phase 0** *(complete)* — IR, renderer, device/grid model, canvas,
+  re-express provider/stock cards as manifests.
+- **Phase 1** *(complete)* — declarative `http` source + four non-usage
+  built-ins (`clock`, `countdown`, `weather`, `rss`).
+- **Phase 2** *(complete)* — the authoring skill loop + manifest
+  validation + preview render (`.claude/skills/widget/SKILL.md`).
+- **Phase 3** *(complete)* — gallery/market + install permissions + sharing
+  (`/admin/market`, `/api/market`, `lib/widgets/capabilities.ts`).
 - **Phase 4** *(optional)* — sandboxed code sources for the long tail
   (self-host only).

@@ -21,11 +21,14 @@ export const runtime = 'nodejs';
  * - Two event names:
  *     - `refresh` (heartbeat, every 15s) — the client just reloads. The point
  *       is to keep proxies / load balancers from idle-closing the socket.
- *     - `patch` (per-widget) — emitted when a widget's effective
- *       `refresh_seconds` has elapsed. The payload is `{ widgetId, ts }`. For
- *       Phase 1 the client treats this identically to `refresh` and reloads;
- *       a future commit can switch to a real DOM patch on top of the
- *       `data-w-inst` markers that soft-refresh already uses.
+ *     - `patch` (per-widget-instance) — emitted when a widget's effective
+ *       `refresh_seconds` has elapsed. The payload is `{ instanceId, ts }`,
+ *       where `instanceId` matches the `data-w-inst` attribute the
+ *       `DashboardCanvas` writes into the live DOM. The client fetches
+ *       `/api/display/widget?instance=<id>` for the new HTML and replaces
+ *       that single node in place. Legacy provider / stock patches fall
+ *       back to a full reload on the client (they have no `data-w-inst`
+ *       marker — they're not part of the canvas).
  * - We poll a *lightweight* view of the user's data (manifest refresh + per-
  *   row override) rather than re-running `resolveDashboard` — the source layer
  *   can issue real HTTP fetches, and we don't want the SSE itself to act as a
@@ -42,7 +45,13 @@ const STREAM_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_REFRESH = 60;
 
 export interface StreamTarget {
-  /** Stable id used in the `patch` event payload. */
+  /**
+   * Stable id used in the `patch` event payload as `instanceId`. For dashboard
+   * widgets this is the placement id (matches the `data-w-inst` attribute on
+   * the live DOM). For legacy provider / stock rows it is `provider:<id>` /
+   * `stock:<id>`, which have no DOM marker and trigger a full reload on the
+   * client side instead.
+   */
   id: string;
   /** Effective refresh period in seconds (manifest + per-device override). */
   refreshSeconds: number;
@@ -177,7 +186,7 @@ export function startDisplayStream(opts: StartStreamOpts): StreamHandle {
       seen.add(t.id);
       const last = lastEmitted.get(t.id) ?? ts;
       if (ts - last >= t.refreshSeconds * 1000) {
-        safeSend('patch', { widgetId: t.id, ts });
+        safeSend('patch', { instanceId: t.id, ts });
         lastEmitted.set(t.id, ts);
       }
     }

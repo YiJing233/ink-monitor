@@ -1,0 +1,49 @@
+{
+  "v": 1,
+  "id": "github-releases",
+  "version": "0.1.0",
+  "name": "GitHub Releases",
+  "description": "Latest release of a GitHub repo. Per-instance config supplies `owner` + `repo`; the install flow prompts for a `GITHUB_TOKEN` (used as a Bearer so the user is not rate-limited to 60 unauthed req/h). The http source calls `GET /repos/{owner}/{repo}/releases?per_page=5` and projects the first entry's `tag_name` / `name` / `published_at`. 1x2 shows just the tag (small tile — a release headline); 2x2 adds the title + date; 4x2 adds the date as a third line.",
+  "source": {
+    "kind": "http",
+    "url": "https://api.github.com/repos/{{owner}}/{{repo}}/releases?per_page=5",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "GITHUB_TOKEN" },
+    "select": {
+      "tag": "[0].tag_name",
+      "name": "[0].name",
+      "published_at": "[0].published_at"
+    }
+  },
+  "families": ["1x2", "2x2", "4x2"],
+  "layout": {
+    "1x2": {
+      "t": "text",
+      "value": { "$": "tag" },
+      "size": "title",
+      "prefix": "latest "
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "tag" }, "size": "title" },
+        { "t": "text", "value": { "$": "name" } },
+        { "t": "text", "value": { "$": "published_at" }, "size": "caption" }
+      ]
+    },
+    "4x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "tag" }, "size": "title" },
+        { "t": "text", "value": { "$": "name" } },
+        { "t": "text", "value": { "$": "published_at" } }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["api.github.com"],
+    "secrets": ["GITHUB_TOKEN"],
+    "writes": false
+  },
+  "refresh": 3600
+}

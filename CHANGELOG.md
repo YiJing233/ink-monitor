@@ -7,6 +7,66 @@ All notable changes to Ink Monitor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Widget resolve log + diagnostics integration.** New
+  `widget_resolve_log` table (one row per source-resolution, written by the
+  Source layer with `performance.now()` timing) backs the previously-null
+  `lastResolveMs` / `lastError` / `lastResolvedAt` fields on
+  `GET /api/diagnostics/widgets`. The Source layer (`resolveDashboard` in
+  `lib/widgets/source.ts`) now wraps every widget in a `try/catch` and
+  records both successful and failed resolves — a corrupt manifest is
+  logged with `error = "invalid manifest_json"`, and a thrown `resolveSource`
+  is captured with `err.message` so the canvas can keep rendering the rest
+  of the page. Index `idx_widget_resolve_log_user_widget_ts` serves the
+  "most recent row for (user, widget)" read pattern.
+- **Notes widget QR write-back: scan to edit on phone.** Each placed
+  `notes` widget now stamps a tiny scan-to-edit QR in the bottom-right
+  corner of its e-ink tile; the QR encodes
+  `/admin/widgets/<widget-instance-id>/edit-notes`, so a user scanning it
+  from a phone lands directly on a textarea bound to that widget. The
+  editor POSTs to `POST /api/widgets/[id]/config` (owner-only, zod
+  validated: ≤ 50 lines, ≤ 200 chars per line), which writes
+  `widget.config_json.lines`. The Source layer (`resolveNotesSource`)
+  reads the per-instance `widget.config_json.lines` first and falls back
+  to the legacy shared `settings:notes` owned_state for installs that
+  predate the write-back path — an empty `lines` array wins over the
+  shared store (the user's "delete everything" save is authoritative).
+  New files: `app/api/widgets/[id]/config/route.ts`,
+  `app/admin/widgets/[id]/edit-notes/page.tsx`,
+  `app/admin/widgets/[id]/edit-notes/edit-notes-client.tsx`,
+  `lib/widgets/render/widgets/NotesWidget.tsx`,
+  `app/api/widgets/[id]/config/__tests__/route.test.ts` (3 cases: 401
+  no-auth, 403 foreign-widget, 200 successful write), and
+  `lib/widgets/__tests__/notes-config.test.ts` (5 cases: config-wins,
+  owned_state fallback, empty-array authoritative, non-array fallthrough,
+  coercion). The `notes` manifest bumps to `0.2.0` and the `DashboardCanvas`
+  now propagates `widgetInstanceId` to the per-widget renderer so the
+  QR can deep-link without polluting the generic `WidgetRenderer` path.
+- **Phase 2 non-usage built-ins: `github-releases`, `ticker-tape`,
+  `strava`.** Three more declarative widgets, joining the `clock` /
+  `countdown` / `weather` / `rss` Phase 1 set and the `calendar` / `notes`
+  Phase 2 set. `github-releases` calls
+  `GET https://api.github.com/repos/{owner}/{repo}/releases?per_page=5`
+  with a templated `{{owner}}` / `{{repo}}` per-instance config and a
+  `STRAVA_TOKEN`-style Bearer for `GITHUB_TOKEN`, projects the first
+  entry's `tag_name` / `name` / `published_at`, and renders a `1x2`
+  headline / `2x2` headline + title + date / `4x2` headline + title + date
+  stack. `ticker-tape` calls CoinGecko's public
+  `/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true`,
+  flattens the `{ coin: { usd, usd_24h_change } }` response with the
+  `select` map (`bitcoin.usd` → `btc_price`, etc.), and renders BTC on
+  `4x1` or BTC over ETH on `4x2`. `strava` calls
+  `GET www.strava.com/api/v3/athlete/activities?per_page=1` with a Bearer
+  `STRAVA_TOKEN`, projects the first entry's `distance` / `name` / `type`,
+  and renders a meters bignum with type subtitle on `1x1` and adds the
+  activity name on `2x2`. All three declare a pinned egress allowlist
+  (`api.github.com` / `api.coingecko.com` / `www.strava.com`) and ship
+  sample-data fixtures mirroring the post-`select` shape so `/preview`
+  renders meaningfully without I/O. New files:
+  `lib/widgets/manifests/github-releases.json`,
+  `lib/widgets/manifests/ticker-tape.json`,
+  `lib/widgets/manifests/strava.json`, and three matching tests in
+  `lib/widgets/__tests__/` (manifest validation + `applySelect` projection
+  + sample-data shape compatibility — 3 cases each).
 - **Phase 2 non-usage built-ins: `calendar` + `notes`.** Two more
   declarative widgets, joining the `clock` / `countdown` / `weather` / `rss`
   Phase 1 set. `calendar` reads an iCal URL the user pastes into

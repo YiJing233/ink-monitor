@@ -1,9 +1,9 @@
 {
   "v": 1,
   "id": "notes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "Notes",
-  "description": "A short freeform list you edit from the /admin panel. The widget writes to the platform-owned `settings:notes` store via a QR-backed editor (UI is on the roadmap — see CHANGELOG Phase 2 TODO). Renders up to 4 / 8 / 16 lines on 1x2 / 2x2 / 4x4 respectively.",
+  "description": "A short freeform list edited from a QR-backed admin editor (POST /api/widgets/[id]/config). Per-instance lines live in `widget.config_json.lines` (write-back path); `settings:notes` is a legacy single-store fallback for installs predating the widget-config write path. Renders up to 4 / 8 / 16 lines on 1x2 / 2x2 / 4x4 respectively and stamps a tiny scan-to-edit QR in the bottom-right corner.",
   "source": { "kind": "owned", "store": "settings:notes" },
   "families": ["1x2", "2x2", "4x4"],
   "layout": {

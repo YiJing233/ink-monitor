@@ -62,7 +62,10 @@ describe('notes manifest', () => {
   it('validates against the IR schema with the expected source + families', () => {
     const m = validateManifest(notesManifest);
     expect(m.id).toBe('notes');
-    expect(m.version).toBe('0.1.0');
+    // 0.2.0 added the per-instance write-back path (QR-backed admin editor
+    // + POST /api/widgets/[id]/config). The version bump is what makes the
+    // Market surface "update available" to existing users.
+    expect(m.version).toBe('0.2.0');
     expect(m.source).toEqual({ kind: 'owned', store: 'settings:notes' });
     expect(m.families).toEqual(['1x2', '2x2', '4x4']);
   });

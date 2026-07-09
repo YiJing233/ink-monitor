@@ -90,7 +90,11 @@ export default async function PreviewPage({ searchParams }: { searchParams: Prom
       const placement: Placement = { id: String(i), widgetId: it.m, x: it.x, y: it.y, w: it.w, h: it.h };
       // Sample data for built-ins; demo-source data for custom; else empty (layout still renders).
       const data = SAMPLE_DATA[it.m] ?? (manifest.source.kind === 'demo' ? manifest.source.data : {}) ?? {};
-      return { placement, manifest, data };
+      // Lightweight preview mode: there's no real widget row id in the URL —
+      // we synthesize one from the index so `NotesWidget`'s QR link is at
+      // least syntactically valid (it'll 404 on click, which is the expected
+      // behavior in a sandboxed preview).
+      return { placement, manifest, data, widgetInstanceId: `preview-${i}` };
     })
     .filter((x): x is CanvasItem => x !== null);
 

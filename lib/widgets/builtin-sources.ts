@@ -366,20 +366,46 @@ function formatICalDate(ms: number): string {
 }
 
 /**
- * Compute the `notes` widget's data shape from a stored `owned_state` value.
+ * Compute the `notes` widget's data shape. Two storage paths are supported:
  *
- * The Source layer (server-only) reads the value at `settings:notes`; this
- * helper just normalizes it into `{ lines: string[] }`. Tolerates a missing
- * row, a `null` value, and a value with a non-array `lines` field — all
- * collapse to an empty list, which the `list` node renders as a blank tile.
+ *   1. **Per-instance `widget.config_json.lines`** — the modern write-back path.
+ *      Each placed widget has its own private lines, edited from the admin QR
+ *      editor (POST /api/widgets/[id]/config). When `configLines` is provided
+ *      we use it directly.
+ *   2. **Shared `settings:notes` owned_state** — a legacy single-store fallback
+ *      for installs predating the per-widget config write path. Used when the
+ *      caller hasn't supplied `configLines` (or has supplied an empty array),
+ *      so a widget that was never edited still has something to render.
  *
- * @param userId     Reserved for future per-user overrides; ignored today.
- * @param ownedState The value previously stored at `settings:notes`. Shape:
- *                   `{ lines: string[] }`. Pass `null` / `undefined` for the
- *                   "never configured" case.
+ * The Source layer (server-only) handles the read; this helper just normalizes
+ * both shapes into `{ lines: string[] }`. Tolerates a missing row, a `null`
+ * value, and a value with a non-array `lines` field — all collapse to an
+ * empty list, which the `list` node renders as a blank tile.
+ *
+ * @param userId      Reserved for future per-user overrides; ignored today.
+ * @param ownedState  The value previously stored at `settings:notes`. Shape:
+ *                    `{ lines: string[] }`. Pass `null` / `undefined` for the
+ *                    "never configured" case. Ignored when `configLines` is a
+ *                    non-empty array.
+ * @param configLines Per-instance override (from `widget.config_json.lines`).
+ *                    Wins when non-empty — that means the user has saved at
+ *                    least one line through the editor. An absent / empty /
+ *                    non-array value falls through to `ownedState`.
  */
-export function resolveNotesSource(userId: string, ownedState: unknown): NotesData {
+export function resolveNotesSource(
+  userId: string,
+  ownedState: unknown,
+  configLines?: unknown,
+): NotesData {
   void userId;
+  // Path 1: per-instance widget config wins when present. We treat a
+  // non-empty string[] as authoritative; an empty array (the editor's
+  // "delete everything" case) also wins, because the user has explicitly
+  // cleared the widget — we shouldn't fall back to a stale shared store.
+  if (Array.isArray(configLines)) {
+    return { lines: configLines.filter((l): l is string => typeof l === 'string' && l.length > 0) };
+  }
+  // Path 2: legacy single-store fallback. Keeps existing rows working.
   const lines = (ownedState as { lines?: unknown } | null)?.lines;
   if (!Array.isArray(lines)) return { lines: [] };
   // Coerce to string + drop empties; the editor saves whatever the user typed

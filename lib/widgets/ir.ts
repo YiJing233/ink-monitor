@@ -16,7 +16,7 @@
 import { z } from 'zod';
 
 // --- Size families (grid spans, Apple `WidgetFamily` analogue) ---
-export const FAMILIES = ['1x1', '2x1', '1x2', '2x2', '4x2', '4x4'] as const;
+export const FAMILIES = ['1x1', '2x1', '1x2', '2x2', '4x1', '4x2', '4x4'] as const;
 export type Family = (typeof FAMILIES)[number];
 export const FamilySchema = z.enum(FAMILIES);
 
@@ -132,6 +132,7 @@ export const LayoutSchema = z
     '2x1': NodeSchema.optional(),
     '1x2': NodeSchema.optional(),
     '2x2': NodeSchema.optional(),
+    '4x1': NodeSchema.optional(),
     '4x2': NodeSchema.optional(),
     '4x4': NodeSchema.optional(),
   })

@@ -109,6 +109,39 @@ export const notesSample = resolveNotesSource('preview', {
   ],
 });
 
+/** Phase 2 non-usage built-in: the post-`select` shape for the GitHub
+ *  `/repos/{owner}/{repo}/releases` endpoint. Mirrors what the manifest's
+ *  JSONPath `[0].tag_name` / `[0].name` / `[0].published_at` projection
+ *  produces for the first (most-recent) release. The http source itself is
+ *  not exercised at preview time — we don't want to hit the GitHub API in
+ *  tests or galleries. */
+export const githubReleasesSample = {
+  tag: 'v0.3.1',
+  name: 'v0.3.1 — markdown rendering fixes + new gallery tile',
+  published_at: '2026-07-04T18:12:34Z',
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the CoinGecko
+ *  `/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true`
+ *  endpoint. The raw response is `{ bitcoin: { usd, usd_24h_change }, ethereum: { … } }`;
+ *  the manifest's `select` flattens it to `{ btc_*, eth_* }` so the layout
+ *  binds the same way a fixed-shape widget would. */
+export const tickerTapeSample = {
+  btc_price: 67842.11,
+  btc_change: -1.42,
+  eth_price: 3184.5,
+  eth_change: 0.83,
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the Strava
+ *  `/athlete/activities?per_page=1` endpoint. `distance` is in meters (Strava's
+ *  default unit); we let the layout's `unit: "m"` carry it. */
+export const stravaSample = {
+  name: 'Morning Run',
+  distance: 5210,
+  type: 'Run',
+};
+
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
     name: 'OpenAI',
@@ -146,4 +179,7 @@ export const SAMPLE_DATA: Record<string, unknown> = {
   rss: rssSample,
   calendar: calendarSample,
   notes: notesSample,
+  'github-releases': githubReleasesSample,
+  'ticker-tape': tickerTapeSample,
+  strava: stravaSample,
 };

@@ -14,7 +14,7 @@ import 'server-only';
  */
 import { getDisplayData } from '../aggregator';
 import { decryptForUser } from '../crypto';
-import { getOwnedState, getWidgetSecret, listWidgets, type DashboardRow } from '../db';
+import { getOwnedState, getWidgetSecret, listWidgets, logWidgetResolve, type DashboardRow } from '../db';
 import { safeJson } from '../safe-json';
 import { formatNumber, formatPercent } from '../utils';
 import { resolveClockSource, resolveCountdownSource, resolveCalendarSource, resolveNotesSource } from './builtin-sources';
@@ -109,7 +109,14 @@ async function resolveOwnedState(
     return resolveCalendarSource(userId, res.bytes.toString('utf8'));
   }
   if (resolvedStore === NOTES_STORE) {
-    return resolveNotesSource(userId, await getOwnedState(userId, resolvedStore));
+    // Per-instance config wins (the modern write-back path: the admin QR
+    // editor POSTs to /api/widgets/[id]/config which writes `config_json`).
+    // `settings:notes` is the legacy single-store fallback for installs that
+    // predate the per-widget write path; see lib/widgets/manifests/notes.json
+    // for the storage rationale and lib/widgets/builtin-sources.ts#resolveNotesSource
+    // for the priority rules.
+    const configLines = (config as { lines?: unknown } | undefined)?.lines;
+    return resolveNotesSource(userId, await getOwnedState(userId, resolvedStore), configLines);
   }
   return (await getOwnedState(userId, resolvedStore)) ?? { items: [] };
 }
@@ -232,6 +239,10 @@ export interface ResolvedItem {
   placement: Placement;
   manifest: Manifest;
   data: unknown;
+  /** Widget row id (= `widgets.id`). Surfaced to `DashboardCanvas` so widgets
+   *  that stamp a scan-to-edit QR (currently `notes`) can deep-link to the
+   *  per-instance admin editor at `/admin/widgets/<id>/edit-notes`. */
+  widgetInstanceId: string;
 }
 
 export interface ResolvedDashboard {
@@ -266,11 +277,32 @@ export async function resolveDashboard(
     try {
       manifest = validateManifest(JSON.parse(wrow.manifest_json));
     } catch {
-      continue; // skip a corrupt/out-of-spec manifest rather than breaking the page
+      // Manifest parse/validate failure: log it so the diagnostics route can
+      // surface it as the widget's `lastError`, then skip — a corrupt row
+      // shouldn't break the entire canvas.
+      logWidgetResolve(userId, wrow.id, 0, 'invalid manifest_json');
+      continue;
     }
     const config = (safeJson(wrow.config_json, 'widgets.config_json') as Record<string, unknown>) || {};
-    const data = await resolveSource(manifest, config, { userId });
-    items.push({ placement: p, manifest, data });
+    // Per-widget timing + error capture. `performance.now()` is monotonic
+    // and immune to wall-clock jumps, which matters on e-ink devices where
+    // the renderer frequently reschedules itself mid-resolve.
+    const startedAt = performance.now();
+    let data: unknown;
+    let errMsg: string | null = null;
+    try {
+      data = await resolveSource(manifest, config, { userId });
+    } catch (err) {
+      errMsg = err instanceof Error ? err.message : String(err);
+      // The canvas continues to render — a single widget failing must not
+      // blank out the page. `data` stays undefined on purpose so the
+      // downstream render layer can fall back to its "error" layout.
+      data = undefined;
+    }
+    const ms = Math.round(performance.now() - startedAt);
+    logWidgetResolve(userId, wrow.id, ms, errMsg);
+    if (errMsg) continue;
+    items.push({ placement: p, manifest, data, widgetInstanceId: wrow.id });
   }
   const override = overrides[deviceId];
   return { deviceId, items, refreshOverrideSec: typeof override === 'number' && override >= 15 ? override : null };
