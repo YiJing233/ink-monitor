@@ -13,6 +13,15 @@ export interface CapabilityNotice {
   text: string;
 }
 
+/** An egress entry containing `{{VAR}}` is a runtime template — the allowlist
+ *  check happens against a hostname the renderer never sees, so the entry
+ *  cannot actually confine egress. The safe-fetch layer would still reject a
+ *  blocked IP, but it cannot enforce an allowlist against an unknown host.
+ *  Flag these so the install prompt treats them like an empty allowlist. */
+export function egressIsTemplated(entry: string): boolean {
+  return /\{\{\w+\}\}/.test(entry);
+}
+
 export function describeCapabilities(m: Manifest): CapabilityNotice[] {
   const out: CapabilityNotice[] = [];
   switch (m.source.kind) {
@@ -38,10 +47,16 @@ export function describeCapabilities(m: Manifest): CapabilityNotice[] {
 
   // Safety net: an http source with no egress allowlist is treated as "any
   // public host" by safe-fetch (hostAllowed returns true for an empty list).
-  // Surface that prominently so the user is not surprised at install time.
+  // We also flag a manifest whose allowlist is *entirely* templated: each
+  // entry resolves to a hostname the safe-fetch layer never sees, so the
+  // allowlist cannot confine egress either way. (An allowlist with a mix of
+  // static + templated entries is partial — we still warn, but the static
+  // entries are listed individually above so the user sees the names.)
+  const egress = m.capabilities?.egress ?? [];
+  const allTemplated = egress.length > 0 && egress.every(egressIsTemplated);
   if (
     m.source.kind === 'http' &&
-    (!m.capabilities?.egress || m.capabilities.egress.length === 0)
+    (egress.length === 0 || allTemplated)
   ) {
     out.push({
       kind: EGRESS_UNRESTRICTED,

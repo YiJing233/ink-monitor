@@ -1,0 +1,43 @@
+{
+  "v": 1,
+  "id": "plex-now-playing",
+  "version": "0.1.0",
+  "name": "Plex — Now Playing",
+  "description": "Active Plex session (most-recent player). The install flow prompts for a `PLEX_TOKEN` (Plex's `X-Plex-Token` header — the standard `https://plex.tv/api/v2/user` API returns this value for the current user). The http source calls `GET /status/sessions` on the user's Plex server and projects the first `Metadata[0]`'s `title` / `type`. 1x1 shows the title above the media type; 2x2 uses a larger title above a caption-sized type label. NOTE: the server host is per-instance config (`{{host}}`) and the egress entry is templated — the install prompt surfaces an unrestricted warning.",
+  "source": {
+    "kind": "http",
+    "url": "http://{{host}}:32400/status/sessions",
+    "method": "GET",
+    "auth": { "type": "none" },
+    "headers": {
+      "X-Plex-Token": "{{PLEX_TOKEN}}"
+    },
+    "select": {
+      "title": "MediaContainer.Metadata[0].title",
+      "type": "MediaContainer.Metadata[0].type"
+    }
+  },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" } },
+        { "t": "text", "value": { "$": "type" }, "size": "caption" }
+      ]
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "text", "value": { "$": "title" }, "size": "title" },
+        { "t": "text", "value": { "$": "type" }, "size": "caption" }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["{{host}}"],
+    "secrets": ["PLEX_TOKEN"],
+    "writes": false
+  },
+  "refresh": 60
+}

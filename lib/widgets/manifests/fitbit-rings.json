@@ -1,0 +1,40 @@
+{
+  "v": 1,
+  "id": "fitbit-rings",
+  "version": "0.1.0",
+  "name": "Fitbit — Daily Rings",
+  "description": "Today's Fitbit activity summary. The install flow prompts for a `FITBIT_TOKEN` (Bearer; the standard Fitbit Web API OAuth2 flow is documented in the widget skill). The http source calls `GET /1/user/-/activities/date/{{date}}.json` (the `{{date}}` placeholder comes from the per-instance config, defaulting to today) and projects the daily `summary.steps` / `summary.caloriesOut` / `summary.veryActiveMinutes`. 1x1 is the step count as a bignum; 2x2 stacks the step count above the calories and active-minutes labels.",
+  "source": {
+    "kind": "http",
+    "url": "https://api.fitbit.com/1/user/-/activities/date/{{date}}.json",
+    "method": "GET",
+    "auth": { "type": "bearer", "secret": "FITBIT_TOKEN" },
+    "select": {
+      "steps": "summary.steps",
+      "calories": "summary.caloriesOut",
+      "active_minutes": "summary.veryActiveMinutes"
+    }
+  },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": {
+      "t": "bignum",
+      "value": { "$": "steps" },
+      "unit": "steps"
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "steps" }, "unit": "steps" },
+        { "t": "text", "value": { "$": "calories" }, "prefix": "cal " },
+        { "t": "text", "value": { "$": "active_minutes" }, "prefix": "active " }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["api.fitbit.com"],
+    "secrets": ["FITBIT_TOKEN"],
+    "writes": false
+  },
+  "refresh": 900
+}

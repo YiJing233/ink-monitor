@@ -1,0 +1,42 @@
+{
+  "v": 1,
+  "id": "homeassistant-sensor",
+  "version": "0.1.0",
+  "name": "Home Assistant — Sensor",
+  "description": "A single Home Assistant entity's current state. The install flow prompts for a `HASS_TOKEN` (long-lived access token from `/profile`); the http source calls `GET /api/states/{{entity_id}}` on the user's Home Assistant instance and projects `state` / `attributes.unit_of_measurement` / `attributes.friendly_name`. 1x1 is the state as a bignum with the unit (resolved from the API) inline; 2x2 adds the friendly name as a caption underneath. NOTE: the server host is per-instance config (`{{host}}`) and the egress entry is templated — the install prompt surfaces an unrestricted warning.",
+  "source": {
+    "kind": "http",
+    "url": "http://{{host}}:8123/api/states/{{entity_id}}",
+    "method": "GET",
+    "auth": { "type": "none" },
+    "headers": {
+      "Authorization": "Bearer {{HASS_TOKEN}}"
+    },
+    "select": {
+      "state": "state",
+      "unit": "attributes.unit_of_measurement",
+      "name": "attributes.friendly_name"
+    }
+  },
+  "families": ["1x1", "2x2"],
+  "layout": {
+    "1x1": {
+      "t": "bignum",
+      "value": { "$": "state" },
+      "unit": { "$": "unit" }
+    },
+    "2x2": {
+      "t": "col",
+      "children": [
+        { "t": "bignum", "value": { "$": "state" }, "unit": { "$": "unit" } },
+        { "t": "text", "value": { "$": "name" }, "size": "caption" }
+      ]
+    }
+  },
+  "capabilities": {
+    "egress": ["{{host}}"],
+    "secrets": ["HASS_TOKEN"],
+    "writes": false
+  },
+  "refresh": 120
+}

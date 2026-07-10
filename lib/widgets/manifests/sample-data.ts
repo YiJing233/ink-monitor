@@ -193,6 +193,41 @@ export const mastodonSample = {
   ],
 };
 
+/** Phase 2 non-usage built-in: the post-`select` shape for the Fitbit
+ *  `/1/user/-/activities/date/{date}.json` endpoint. Mirrors what the
+ *  manifest's JSONPath `summary.steps` / `summary.caloriesOut` /
+ *  `summary.veryActiveMinutes` projection produces. The 1x1 bignum binds
+ *  `steps` with a static `unit: "steps"`; the 2x2 layout adds the other
+ *  two as `text` rows under the bignum. */
+export const fitbitSample = {
+  steps: 8421,
+  calories: 2310,
+  active_minutes: 47,
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the Plex
+ *  `/status/sessions` endpoint. Plex returns a `MediaContainer` with a
+ *  `Metadata` array; the manifest projects `MediaContainer.Metadata[0].title`
+ *  and `MediaContainer.Metadata[0].type`. Both layouts use plain `text` nodes
+ *  (1x1 stacks title above a caption-sized type; 2x2 uses a larger title). */
+export const plexSample = {
+  title: 'Dune: Part Two',
+  type: 'movie',
+};
+
+/** Phase 2 non-usage built-in: the post-`select` shape for the Home Assistant
+ *  `/api/states/{entity_id}` endpoint. Mirrors what the manifest's JSONPath
+ *  `state` / `attributes.unit_of_measurement` / `attributes.friendly_name`
+ *  projection produces. The `unit` field is bound to `bignum.unit` as a Bind
+ *  so the rendered unit reflects whatever the sensor reports (no static
+ *  fallback). `state` is a string in the HA API (numbers are quoted) — the
+ *  bignum renderer accepts both. */
+export const homeassistantSample = {
+  state: '21.4',
+  unit: '°C',
+  name: 'Living Room Temperature',
+};
+
 export const SAMPLE_DATA: Record<string, unknown> = {
   'api-usage': {
     name: 'OpenAI',
@@ -236,4 +271,7 @@ export const SAMPLE_DATA: Record<string, unknown> = {
   'spotify-now-playing': spotifySample,
   'news-headlines': newsHeadlinesSample,
   'mastodon-feed': mastodonSample,
+  'fitbit-rings': fitbitSample,
+  'plex-now-playing': plexSample,
+  'homeassistant-sensor': homeassistantSample,
 };

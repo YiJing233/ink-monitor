@@ -12,5 +12,15 @@
     "4x4": { "t": "list", "items": { "$": "lines" }, "max": 16 }
   },
   "capabilities": { "writes": true },
-  "refresh": 60
+  "refresh": 60,
+  "config_schema": [
+    {
+      "key": "lines",
+      "label": "Notes",
+      "type": "lines",
+      "maxLines": 50,
+      "maxChars": 200,
+      "hint": "One note per line. Blank lines are dropped automatically."
+    }
+  ]
 }

@@ -6,7 +6,9 @@ import { BUILTIN_MANIFESTS } from '@/lib/widgets/registry';
 import { validateManifest, type Manifest } from '@/lib/widgets/ir';
 import type { DeviceId } from '@/lib/widgets/devices';
 import { resolveLocale, t } from '@/lib/i18n';
+import { findAvailableUpdates, type WidgetUpdate } from '@/lib/widgets/auto-update';
 import CanvasEditor, { type EditorInitial, type EditorItem } from './canvas-editor';
+import UpdateBanner from './update-banner';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,13 +28,66 @@ export default async function CanvasPage() {
     ? loadInitial(userId, catalog)
     : { dashboardId: null, name: 'My dashboard', device: 'kindle-pw', layouts: {}, refreshOverrides: {} };
 
+  // Auto-update check: for every installed widget on the canvas, ask the
+  // registry if a newer version is available. The banner only shows when
+  // the list is non-empty; the route at /api/widgets/batch-update re-runs
+  // the same check on POST so we never drift between banner and server.
+  const updates: WidgetUpdate[] = userId
+    ? await loadUpdates(userId, initial.dashboardId)
+    : [];
+
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>{t(locale, 'admin.canvas.h')}</h2>
       <p className="hint" dangerouslySetInnerHTML={{ __html: t(locale, 'admin.canvas.body') }} />
+      <UpdateBanner
+        dashboardId={initial.dashboardId}
+        updates={updates.map((u) => ({
+          widgetId: u.widgetId,
+          manifestId: u.manifestId,
+          installedVersion: u.installedVersion,
+          latestVersion: u.latestVersion,
+        }))}
+      />
       <CanvasEditor initial={initial} userManifests={userManifests} locale={locale} />
     </div>
   );
+}
+
+/**
+ * Compute the auto-update banner payload. We restrict the check to widgets
+ * that are *actually on the active dashboard* — orphan widgets (referenced
+ * by no layout) shouldn't trigger the banner, since the user has already
+ * "abandoned" them on the canvas.
+ *
+ * Failures are swallowed: a downed registry must never break the canvas
+ * page render — the banner just doesn't appear.
+ */
+async function loadUpdates(userId: string, dashboardId: string | null): Promise<WidgetUpdate[]> {
+  if (!dashboardId) return [];
+  try {
+    const all = listWidgets(userId);
+    const byId = new Map(all.map((w) => [w.id, w]));
+    const dash = listDashboards(userId).find((d) => d.id === dashboardId);
+    if (!dash) return [];
+    const layouts = safeJson(dash.layouts_json || '{}', 'canvas.dashboards.layouts_json') as Record<
+      string,
+      { widgetId: string }[]
+    >;
+    const onCanvasIds = new Set<string>();
+    for (const arr of Object.values(layouts)) for (const p of arr || []) if (p?.widgetId) onCanvasIds.add(p.widgetId);
+    const onCanvas = Array.from(onCanvasIds)
+      .map((id) => byId.get(id))
+      .filter((w): w is NonNullable<typeof w> => !!w);
+    const userManifests = listUserManifests(userId).map((r) => ({
+      manifest_id: r.manifest_id,
+      manifest_json: r.manifest_json,
+      origin: r.origin,
+    }));
+    return await findAvailableUpdates(onCanvas, userManifests);
+  } catch {
+    return [];
+  }
 }
 
 function loadUserManifests(userId: string): Manifest[] {

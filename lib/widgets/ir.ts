@@ -32,7 +32,11 @@ export type Bind = z.infer<typeof BindSchema>;
 // --- Render nodes (recursive, discriminated on `t`) ---
 export type Node =
   | { t: 'text'; value: Bind; size?: 'title' | 'body' | 'caption'; mono?: boolean; prefix?: string }
-  | { t: 'bignum'; value: Bind; unit?: string; sub?: Bind }
+  // `unit` accepts a Bind so a layout can stamp a server-side dynamic unit
+  // (e.g. Home Assistant's `attributes.unit_of_measurement`) without a
+  // separate `text` node. A plain string is still valid — the union makes
+  // existing manifests backward-compatible.
+  | { t: 'bignum'; value: Bind; unit?: Bind; sub?: Bind }
   | { t: 'metric'; label?: string; value: Bind; max?: Bind; unit?: string; reset?: Bind; window?: string }
   | { t: 'series'; kind: 'bar' | 'spark'; data: Bind; window?: string; unit?: string }
   | { t: 'table'; columns: TableCol[]; rows: Bind }
@@ -65,7 +69,7 @@ const TableColSchema = z.object({
 export const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion('t', [
     z.object({ t: z.literal('text'), value: BindSchema, size: z.enum(['title', 'body', 'caption']).optional(), mono: z.boolean().optional(), prefix: z.string().optional() }),
-    z.object({ t: z.literal('bignum'), value: BindSchema, unit: z.string().optional(), sub: BindSchema.optional() }),
+    z.object({ t: z.literal('bignum'), value: BindSchema, unit: BindSchema.optional(), sub: BindSchema.optional() }),
     z.object({ t: z.literal('metric'), label: z.string().optional(), value: BindSchema, max: BindSchema.optional(), unit: z.string().optional(), reset: BindSchema.optional(), window: z.string().optional() }),
     z.object({ t: z.literal('series'), kind: z.enum(['bar', 'spark']), data: BindSchema, window: z.string().optional(), unit: z.string().optional() }),
     z.object({ t: z.literal('table'), columns: z.array(TableColSchema), rows: BindSchema }),
@@ -103,6 +107,12 @@ export const SourceSchema = z.discriminatedUnion('kind', [
     // as the URL, so secrets can ride in the body the way they ride in the
     // query string today.
     body: z.string().optional(),
+    // Optional static + templated request headers. Both the name and value
+    // pass through `{{VAR}}` substitution from `config` and any declared
+    // secret, so a manifest can carry auth headers that the fixed `auth`
+    // enum can't express today (e.g. Plex's `X-Plex-Token: <raw>` header or
+    // Home Assistant's `Authorization: Bearer <token>` header).
+    headers: z.record(z.string()).optional(),
     // Normalize raw JSON into a flat object the binds reference: out -> JSONPath.
     select: z.record(z.string()).optional(),
     ttl: z.number().optional(),
@@ -124,6 +134,52 @@ export const CapabilitiesSchema = z
     writes: z.boolean().optional(), // mutates platform-owned state
   })
   .optional();
+
+// --- Per-widget config schema (declarative UI for the QR-backed editor) ---
+// Any manifest can declare editable per-instance config fields. The generic
+// editor at `/admin/widgets/[id]/edit-config` renders one input per entry;
+// POST `/api/widgets/[id]/config` validates the body against this schema (the
+// server is the source of truth — even the generic client editor cannot write
+// fields that aren't declared here). The `notes` widget is the first user.
+export const CONFIG_FIELD_TYPES = ['text', 'multiline', 'lines', 'number', 'boolean'] as const;
+export type ConfigFieldType = (typeof CONFIG_FIELD_TYPES)[number];
+
+/**
+ * One editable field. Keys map 1:1 to entries in `widget.config_json`.
+ *
+ * `type` controls the rendered input + the server-side validator:
+ *   - `text`     → single-line `<input type="text">`
+ *   - `multiline`→ `<textarea>`
+ *   - `lines`    → string[]; one entry per non-empty line (notes widget)
+ *   - `number`   → `<input type="number">`; `min` / `max` clamp
+ *   - `boolean`  → checkbox
+ *
+ * Type-specific validators carry the per-field limits (e.g. `maxChars`,
+ * `maxLines`) so the manifest author can tune them per widget without the
+ * IR needing per-type sub-schemas. Limits are optional — defaults are
+ * defined on the editor + API side.
+ */
+export const ConfigFieldSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(CONFIG_FIELD_TYPES),
+  // Optional human hint rendered under the input. Plain text only — the
+  // editor renders via React textContent so there's no XSS surface.
+  hint: z.string().optional(),
+  // text / multiline / lines
+  maxChars: z.number().int().positive().optional(),
+  // lines
+  maxLines: z.number().int().positive().optional(),
+  // number
+  min: z.number().optional(),
+  max: z.number().optional(),
+  // text / multiline
+  placeholder: z.string().optional(),
+  // Default the editor falls back to when the key is missing from
+  // config_json. Boolean fields interpret `false` as the default.
+  default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+export type ConfigField = z.infer<typeof ConfigFieldSchema>;
 
 // --- Per-family layout (at least one family required) ---
 export const LayoutSchema = z
@@ -154,6 +210,12 @@ export const ManifestSchema = z.object({
   layout: LayoutSchema,
   capabilities: CapabilitiesSchema,
   refresh: z.number().optional(), // seconds; the dashboard refresh = min across widgets
+  // Optional declarative editor schema. When present, the generic QR-backed
+  // editor (`/admin/widgets/[id]/edit-config`) renders one input per field;
+  // POST /api/widgets/[id]/config validates the body against this array.
+  // Manifests without this field have no QR editor (the legacy notes path
+  // is preserved via a redirect from /edit-notes → /edit-config).
+  config_schema: z.array(ConfigFieldSchema).optional(),
 });
 export type Manifest = z.infer<typeof ManifestSchema>;
 

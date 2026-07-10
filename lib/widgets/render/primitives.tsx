@@ -38,11 +38,17 @@ export function RenderNode({ node, data }: { node: Node; data: unknown }) {
       const v = resolveBind(data, node.value);
       const num = typeof v === 'number' ? formatNumber(v, Number.isInteger(v) ? 0 : 1) : String(v ?? '—');
       const sub = node.sub != null ? resolveString(data, node.sub) : '';
+      // `unit` may be a static string (the legacy / common case) or a Bind —
+      // resolveBind handles both, so we can render a server-side dynamic unit
+      // (Home Assistant's `attributes.unit_of_measurement`) without a separate
+      // `text` node. Empty string after resolution is suppressed.
+      const unit = node.unit != null ? resolveBind(data, node.unit) : '';
+      const unitText = unit == null ? '' : String(unit);
       return (
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
           <div className="eink-mono" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1 }}>
             {num}
-            {node.unit ? <span style={{ fontSize: 20 }}> {node.unit}</span> : null}
+            {unitText ? <span style={{ fontSize: 20 }}> {unitText}</span> : null}
           </div>
           {sub ? (
             <div className="eink-subtitle" style={{ marginTop: 4 }}>

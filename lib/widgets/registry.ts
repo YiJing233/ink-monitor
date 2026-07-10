@@ -22,6 +22,9 @@ import strava from './manifests/strava.json';
 import spotifyNowPlaying from './manifests/spotify-now-playing.json';
 import newsHeadlines from './manifests/news-headlines.json';
 import mastodonFeed from './manifests/mastodon-feed.json';
+import fitbitRings from './manifests/fitbit-rings.json';
+import plexNowPlaying from './manifests/plex-now-playing.json';
+import homeassistantSensor from './manifests/homeassistant-sensor.json';
 import { SAMPLE_DATA } from './manifests/sample-data';
 
 export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
@@ -41,6 +44,9 @@ export const BUILTIN_MANIFESTS: Record<string, Manifest> = {
   'spotify-now-playing': validateManifest(spotifyNowPlaying),
   'news-headlines': validateManifest(newsHeadlines),
   'mastodon-feed': validateManifest(mastodonFeed),
+  'fitbit-rings': validateManifest(fitbitRings),
+  'plex-now-playing': validateManifest(plexNowPlaying),
+  'homeassistant-sensor': validateManifest(homeassistantSensor),
 };
 
 export const BUILTIN_LIST: Manifest[] = Object.values(BUILTIN_MANIFESTS);

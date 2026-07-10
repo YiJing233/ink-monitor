@@ -167,24 +167,32 @@ async function resolveHttp(
   config: Record<string, unknown>,
   ctx: ResolveCtx,
 ): Promise<unknown> {
-  // Resolve the declared secret (value never leaves the server).
-  const secretName = src.auth?.secret;
-  let secretVal = '';
-  if (secretName) {
-    const enc = getWidgetSecret(ctx.userId, secretName);
-    if (enc) {
-      try {
-        secretVal = decryptForUser(ctx.userId, enc);
-      } catch {
-        /* leave empty */
-      }
+  // Resolve every secret this manifest declares. We use `capabilities.secrets`
+  // (not `auth.secret`) as the source of truth so a manifest whose auth is
+  // carried in templated `headers` (Plex's `X-Plex-Token`, Home Assistant's
+  // `Authorization: Bearer <token>`) can still inject its secret into the
+  // variable scope without claiming an `auth.type` it doesn't actually use.
+  // The auth-secret path still works — when `auth.secret` is set we
+  // additionally resolve it (a redundant resolution is cheap).
+  const declared = new Set<string>([
+    ...(src.auth?.secret ? [src.auth.secret] : []),
+    ...(manifest.capabilities?.secrets ?? []),
+  ]);
+  const secretVals: Record<string, string> = {};
+  for (const name of declared) {
+    const enc = getWidgetSecret(ctx.userId, name);
+    if (!enc) continue;
+    try {
+      secretVals[name] = decryptForUser(ctx.userId, enc);
+    } catch {
+      /* leave empty */
     }
   }
 
-  // Template {{VAR}} from config (+ the secret, e.g. for query-string keys).
+  // Template {{VAR}} from config (+ secrets, e.g. for headers / query strings).
   const vars: Record<string, string> = {};
   for (const [k, v] of Object.entries(config)) vars[k] = String(v);
-  if (secretName) vars[secretName] = secretVal;
+  for (const [k, v] of Object.entries(secretVals)) vars[k] = v;
   const url = src.url.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '');
   // Same template rules apply to the request body so a POST can carry a
   // secret the same way the URL does. Undefined when absent — safeFetch will
@@ -192,8 +200,27 @@ async function resolveHttp(
   const body = src.body ? src.body.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '') : undefined;
 
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (src.auth?.type === 'bearer' && secretVal) headers['Authorization'] = `Bearer ${secretVal}`;
-  if (src.auth?.type === 'header' && src.auth.header && secretVal) headers[src.auth.header] = secretVal;
+  if (src.auth?.type === 'bearer' && src.auth.secret && secretVals[src.auth.secret]) {
+    headers['Authorization'] = `Bearer ${secretVals[src.auth.secret]}`;
+  }
+  if (src.auth?.type === 'header' && src.auth.header && src.auth.secret && secretVals[src.auth.secret]) {
+    headers[src.auth.header] = secretVals[src.auth.secret];
+  }
+  // Manifest-declared templated headers. Both name and value pass through the
+  // same {{VAR}} substitution as the URL so a manifest can carry auth headers
+  // the fixed `auth` enum cannot express (Plex's `X-Plex-Token` header,
+  // Home Assistant's `Authorization: Bearer <token>` header, etc.). Headers
+  // declared here layer on top of the auth-derived headers — if both name a
+  // key the manifest wins, so the explicit declaration always has the last
+  // word (matters for the Plex case where the user wires the token through
+  // `auth: { type: 'none' }` to avoid the `Bearer ` prefix).
+  if (src.headers) {
+    for (const [name, value] of Object.entries(src.headers)) {
+      const resolvedName = name.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '');
+      const resolvedValue = value.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '');
+      headers[resolvedName] = resolvedValue;
+    }
+  }
 
   const res = await safeFetch(url, {
     method: src.method || 'GET',

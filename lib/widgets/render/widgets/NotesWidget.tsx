@@ -24,7 +24,7 @@
  *     scans with their phone, so the <a> is harmless dead weight there.
  *   - If the widget has no widgetInstanceId (defensive — preview mode
  *     always provides one), the QR is omitted entirely rather than
- *     pointing at `/admin/widgets//edit-notes`.
+ *     pointing at `/admin/widgets//edit-config`.
  */
 import type { Manifest } from '../../ir';
 import { qrMatrix } from '../../qr';
@@ -57,7 +57,13 @@ function NotesEditQr({ widgetInstanceId }: { widgetInstanceId: string }) {
   // We deliberately don't add `?from=qr` query strings — the editor is
   // already unambiguous (it's the only route at this URL), and adding
   // bookkeeping flags just bloats the QR matrix.
-  const url = `/admin/widgets/${encodeURIComponent(widgetInstanceId)}/edit-notes`;
+  //
+  // The QR points at the *generic* per-widget config editor; the `notes`
+  // manifest declares its `lines` field via `config_schema` so the editor
+  // renders the same line-by-line form the old `/edit-notes` page had.
+  // The legacy path remains as a redirect for any QR codes minted before
+  // the migration — see `app/admin/widgets/[id]/edit-notes/page.tsx`.
+  const url = `/admin/widgets/${encodeURIComponent(widgetInstanceId)}/edit-config`;
   let matrix: boolean[][] | null = null;
   try {
     matrix = qrMatrix(url);
